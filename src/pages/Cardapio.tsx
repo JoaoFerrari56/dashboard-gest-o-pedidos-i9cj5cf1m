@@ -9,6 +9,7 @@ import {
   EyeOff,
   Edit2,
   GripVertical,
+  Trash2,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,16 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 type ProductStatus = 'Ativo' | 'Inativo' | 'Em falta'
@@ -118,6 +129,10 @@ export default function Cardapio() {
   const [renamingCat, setRenamingCat] = useState<string | null>(null)
   const [newCatName, setNewCatName] = useState('')
 
+  // Deletion State
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
+  const [productToDelete, setProductToDelete] = useState<string | null>(null)
+
   const handleAddCategory = () => {
     const trimmed = newCategoryName.trim()
     if (trimmed && !categories.includes(trimmed)) {
@@ -149,6 +164,18 @@ export default function Cardapio() {
       )
     }
     setRenamingCat(null)
+  }
+
+  const handleDeleteCategory = (cat: string) => {
+    setCategories(categories.filter((c) => c !== cat))
+    setProducts(products.filter((p) => p.category !== cat))
+    setCategoryToDelete(null)
+  }
+
+  const handleDeleteProduct = (id: string) => {
+    setProducts(products.filter((p) => p.id !== id))
+    setProductToDelete(null)
+    setIsDrawerOpen(false) // Close drawer if it was open
   }
 
   const handleDragStart = (e: React.DragEvent, cat: string) => {
@@ -400,14 +427,28 @@ export default function Cardapio() {
                             <h3 className="font-bold text-slate-800 text-lg group-hover:text-brand-red transition-colors">
                               {cat}
                             </h3>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-brand-red hover:bg-red-50 ml-1"
-                              onClick={(e) => startRenaming(e, cat)}
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                onClick={(e) => startRenaming(e, cat)}
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setCategoryToDelete(cat)
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                             <Badge
                               variant="secondary"
                               className="bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 ml-auto"
@@ -465,14 +506,24 @@ export default function Cardapio() {
                                   </div>
                                 </div>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-slate-400 hover:text-brand-red hover:bg-red-50 shrink-0 hidden sm:flex opacity-0 group-hover/item:opacity-100 transition-opacity"
-                                onClick={() => openEditDrawer(product)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
+                              <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                  onClick={() => openEditDrawer(product)}
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                  onClick={() => setProductToDelete(product.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           ))}
 
@@ -750,12 +801,21 @@ export default function Cardapio() {
 
           <div className="p-6 border-t border-slate-200 bg-white grid grid-cols-2 gap-3 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
             {isEditingMode ? (
-              <Button
-                className="col-span-2 w-full bg-brand-red hover:bg-red-700 text-white font-bold shadow-sm h-12 transition-transform active:scale-95"
-                onClick={handleFinalize}
-              >
-                Salvar Alterações
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full font-bold border-brand-red/30 text-brand-red hover:bg-red-50 h-12"
+                  onClick={() => setProductToDelete(editingProduct.id)}
+                >
+                  Excluir
+                </Button>
+                <Button
+                  className="w-full bg-brand-red hover:bg-red-700 text-white font-bold shadow-sm h-12 transition-transform active:scale-95"
+                  onClick={handleFinalize}
+                >
+                  Salvar Alterações
+                </Button>
+              </>
             ) : (
               <>
                 <Button
@@ -776,6 +836,63 @@ export default function Cardapio() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Delete Category Confirmation */}
+      <AlertDialog
+        open={!!categoryToDelete}
+        onOpenChange={(open) => !open && setCategoryToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Tem certeza que deseja excluir esta categoria?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Todos os produtos associados a
+              esta categoria também serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-brand-red text-white hover:bg-red-700"
+              onClick={() =>
+                categoryToDelete && handleDeleteCategory(categoryToDelete)
+              }
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Product Confirmation */}
+      <AlertDialog
+        open={!!productToDelete}
+        onOpenChange={(open) => !open && setProductToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Tem certeza que deseja excluir este produto?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação removerá o produto permanentemente do seu cardápio.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-brand-red text-white hover:bg-red-700"
+              onClick={() =>
+                productToDelete && handleDeleteProduct(productToDelete)
+              }
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
