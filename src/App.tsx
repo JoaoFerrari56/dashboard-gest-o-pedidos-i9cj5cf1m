@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import Index from './pages/Index'
 import OrderManager from './pages/OrderManager'
 import Atendimento from './pages/Atendimento'
+import Cardapio from './pages/Cardapio'
 import Placeholder from './pages/Placeholder'
 import NotFound from './pages/NotFound'
 
@@ -23,7 +24,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/pedidos" element={<OrderManager />} />
             <Route path="/atendimento" element={<Atendimento />} />
-            <Route path="/cardapio" element={<Placeholder />} />
+            <Route path="/cardapio" element={<Cardapio />} />
             <Route path="/cupons" element={<Placeholder />} />
             <Route path="/disparos" element={<Placeholder />} />
             <Route path="/financeiro" element={<Placeholder />} />
