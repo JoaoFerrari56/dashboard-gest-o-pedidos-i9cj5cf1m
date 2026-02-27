@@ -6,6 +6,7 @@ import { SearchProvider } from '@/contexts/SearchContext'
 import Layout from './components/Layout'
 import Index from './pages/Index'
 import OrderManager from './pages/OrderManager'
+import Atendimento from './pages/Atendimento'
 import Placeholder from './pages/Placeholder'
 import NotFound from './pages/NotFound'
 
@@ -21,7 +22,7 @@ const App = () => (
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/pedidos" element={<OrderManager />} />
-            <Route path="/atendimento" element={<Placeholder />} />
+            <Route path="/atendimento" element={<Atendimento />} />
             <Route path="/cardapio" element={<Placeholder />} />
             <Route path="/cupons" element={<Placeholder />} />
             <Route path="/disparos" element={<Placeholder />} />
