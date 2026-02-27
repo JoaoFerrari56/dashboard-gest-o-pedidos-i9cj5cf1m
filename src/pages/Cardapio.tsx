@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Edit2,
+  GripVertical,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 
 type ProductStatus = 'Ativo' | 'Inativo' | 'Em falta'
 
@@ -97,6 +99,8 @@ export default function Cardapio() {
   const [menuStatus, setMenuStatus] = useState('Visível')
 
   const [categories, setCategories] = useState<string[]>(initialCategories)
+  const [openCategories, setOpenCategories] =
+    useState<string[]>(initialCategories)
   const [products, setProducts] = useState<Product[]>(initialProducts)
 
   const [isAddingCategory, setIsAddingCategory] = useState(false)
@@ -104,27 +108,99 @@ export default function Cardapio() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product>(defaultProduct)
+  const isEditingMode = !!editingProduct.id
+
+  // Drag and Drop State
+  const [dragEnabledCat, setDragEnabledCat] = useState<string | null>(null)
+  const [draggedCat, setDraggedCat] = useState<string | null>(null)
+
+  // Renaming Category State
+  const [renamingCat, setRenamingCat] = useState<string | null>(null)
+  const [newCatName, setNewCatName] = useState('')
 
   const handleAddCategory = () => {
     const trimmed = newCategoryName.trim()
     if (trimmed && !categories.includes(trimmed)) {
       setCategories([...categories, trimmed])
+      setOpenCategories([...openCategories, trimmed])
     }
     setNewCategoryName('')
     setIsAddingCategory(false)
   }
 
+  const startRenaming = (e: React.MouseEvent, cat: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setRenamingCat(cat)
+    setNewCatName(cat)
+  }
+
+  const saveRenamedCat = () => {
+    const trimmed = newCatName.trim()
+    if (trimmed && trimmed !== renamingCat && !categories.includes(trimmed)) {
+      setCategories(categories.map((c) => (c === renamingCat ? trimmed : c)))
+      setProducts(
+        products.map((p) =>
+          p.category === renamingCat ? { ...p, category: trimmed } : p,
+        ),
+      )
+      setOpenCategories(
+        openCategories.map((c) => (c === renamingCat ? trimmed : c)),
+      )
+    }
+    setRenamingCat(null)
+  }
+
+  const handleDragStart = (e: React.DragEvent, cat: string) => {
+    setDraggedCat(cat)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
+
+  const handleDragEnter = (e: React.DragEvent, targetCat: string) => {
+    e.preventDefault()
+    if (!draggedCat || draggedCat === targetCat) return
+
+    const draggedIdx = categories.indexOf(draggedCat)
+    const targetIdx = categories.indexOf(targetCat)
+
+    const newCategories = [...categories]
+    newCategories.splice(draggedIdx, 1)
+    newCategories.splice(targetIdx, 0, draggedCat)
+
+    setCategories(newCategories)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedCat(null)
+    setDragEnabledCat(null)
+  }
+
   const openDrawer = (category: string) => {
-    setEditingProduct({ ...defaultProduct, category })
+    setEditingProduct({ ...defaultProduct, category, id: '' })
+    setIsDrawerOpen(true)
+  }
+
+  const openEditDrawer = (product: Product) => {
+    setEditingProduct({ ...product })
     setIsDrawerOpen(true)
   }
 
   const saveProduct = () => {
     if (!editingProduct.name) return
-    setProducts((prev) => [
-      ...prev,
-      { ...editingProduct, id: Date.now().toString() },
-    ])
+
+    if (isEditingMode) {
+      setProducts((prev) =>
+        prev.map((p) => (p.id === editingProduct.id ? editingProduct : p)),
+      )
+    } else {
+      setProducts((prev) => [
+        ...prev,
+        { ...editingProduct, id: Date.now().toString() },
+      ])
+    }
   }
 
   const handleSaveAndAddAnother = () => {
@@ -132,6 +208,7 @@ export default function Cardapio() {
     setEditingProduct({
       ...defaultProduct,
       category: editingProduct.category,
+      id: '',
     })
   }
 
@@ -256,101 +333,163 @@ export default function Cardapio() {
 
             <Accordion
               type="multiple"
-              defaultValue={categories}
+              value={openCategories}
+              onValueChange={setOpenCategories}
               className="space-y-4"
             >
               {categories.map((cat) => {
                 const catProducts = products.filter((p) => p.category === cat)
                 return (
-                  <AccordionItem
-                    value={cat}
+                  <div
                     key={cat}
-                    className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden px-1"
+                    draggable={dragEnabledCat === cat}
+                    onDragStart={(e) => handleDragStart(e, cat)}
+                    onDragOver={handleDragOver}
+                    onDragEnter={(e) => handleDragEnter(e, cat)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                      'transition-transform duration-200',
+                      draggedCat === cat
+                        ? 'opacity-50 scale-[0.98] z-10 relative shadow-lg'
+                        : 'opacity-100',
+                    )}
                   >
-                    <AccordionTrigger className="px-5 hover:no-underline hover:bg-slate-50/50 py-4 group">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-bold text-slate-800 text-lg group-hover:text-brand-red transition-colors">
-                          {cat}
-                        </h3>
-                        <Badge
-                          variant="secondary"
-                          className="bg-slate-100 text-slate-600 font-medium hover:bg-slate-200"
-                        >
-                          {catProducts.length} itens
-                        </Badge>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="px-5 pb-5 pt-2 border-t border-slate-100">
-                      <div className="flex flex-col gap-3">
-                        {catProducts.map((product) => (
-                          <div
-                            key={product.id}
-                            className="flex items-start sm:items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-red/30 hover:shadow-sm bg-slate-50/30 transition-all group/item"
+                    <AccordionItem
+                      value={cat}
+                      className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden px-1"
+                    >
+                      {renamingCat === cat ? (
+                        <div className="flex items-center gap-3 px-5 py-4 w-full bg-slate-50/50 border-b border-slate-100">
+                          <Input
+                            value={newCatName}
+                            onChange={(e) => setNewCatName(e.target.value)}
+                            className="h-9 max-w-[250px] bg-white border-slate-200 focus-visible:ring-brand-red"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveRenamedCat()
+                              if (e.key === 'Escape') setRenamingCat(null)
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            onClick={saveRenamedCat}
+                            className="bg-brand-red text-white hover:bg-red-700 h-9 px-4"
                           >
-                            <div className="flex items-center gap-4">
-                              <div className="h-16 w-16 rounded-lg overflow-hidden bg-white border border-slate-100 shrink-0 shadow-sm relative">
-                                {product.image ? (
-                                  <img
-                                    src={product.image}
-                                    className={`h-full w-full object-cover transition-all ${
-                                      product.status === 'Em falta'
-                                        ? 'grayscale opacity-60'
-                                        : ''
-                                    }`}
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-6 w-6 text-slate-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                                )}
-                              </div>
-                              <div>
-                                <h4 className="font-bold text-slate-800 leading-tight">
-                                  {product.name}
-                                </h4>
-                                <p className="text-xs text-slate-500 line-clamp-1 mt-1 max-w-sm">
-                                  {product.description || 'Sem descrição'}
-                                </p>
-                                <div className="flex items-center gap-3 mt-2">
-                                  <span className="font-bold text-brand-green text-sm">
-                                    R$ {product.price}
-                                  </span>
-                                  <Badge
-                                    className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 border-none ${
-                                      product.status === 'Ativo'
-                                        ? 'bg-green-100 text-brand-green hover:bg-green-100'
-                                        : product.status === 'Inativo'
-                                          ? 'bg-slate-200 text-slate-600 hover:bg-slate-200'
-                                          : 'bg-red-100 text-brand-red hover:bg-red-100'
-                                    }`}
-                                    variant="outline"
-                                  >
-                                    {product.status}
-                                  </Badge>
-                                </div>
-                              </div>
+                            Salvar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setRenamingCat(null)}
+                            className="h-9 px-4 text-slate-500 hover:text-slate-700"
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                      ) : (
+                        <AccordionTrigger className="px-5 hover:no-underline hover:bg-slate-50/50 py-4 group">
+                          <div className="flex items-center gap-3 flex-1 pr-4">
+                            <div
+                              className="cursor-grab active:cursor-grabbing p-1.5 -ml-1.5 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors"
+                              onMouseEnter={() => setDragEnabledCat(cat)}
+                              onMouseLeave={() => setDragEnabledCat(null)}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <GripVertical className="h-4 w-4" />
                             </div>
+                            <h3 className="font-bold text-slate-800 text-lg group-hover:text-brand-red transition-colors">
+                              {cat}
+                            </h3>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-slate-400 hover:text-brand-red hover:bg-red-50 shrink-0 hidden sm:flex opacity-0 group-hover/item:opacity-100 transition-opacity"
+                              className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-brand-red hover:bg-red-50 ml-1"
+                              onClick={(e) => startRenaming(e, cat)}
                             >
-                              <Edit2 className="h-4 w-4" />
+                              <Edit2 className="h-3.5 w-3.5" />
                             </Button>
+                            <Badge
+                              variant="secondary"
+                              className="bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 ml-auto"
+                            >
+                              {catProducts.length} itens
+                            </Badge>
                           </div>
-                        ))}
+                        </AccordionTrigger>
+                      )}
+                      <AccordionContent className="px-5 pb-5 pt-2 border-t border-slate-100">
+                        <div className="flex flex-col gap-3">
+                          {catProducts.map((product) => (
+                            <div
+                              key={product.id}
+                              className="flex items-start sm:items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-red/30 hover:shadow-sm bg-slate-50/30 transition-all group/item"
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className="h-16 w-16 rounded-lg overflow-hidden bg-white border border-slate-100 shrink-0 shadow-sm relative">
+                                  {product.image ? (
+                                    <img
+                                      src={product.image}
+                                      className={`h-full w-full object-cover transition-all ${
+                                        product.status === 'Em falta'
+                                          ? 'grayscale opacity-60'
+                                          : ''
+                                      }`}
+                                    />
+                                  ) : (
+                                    <ImageIcon className="h-6 w-6 text-slate-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                  )}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-slate-800 leading-tight">
+                                    {product.name}
+                                  </h4>
+                                  <p className="text-xs text-slate-500 line-clamp-1 mt-1 max-w-sm">
+                                    {product.description || 'Sem descrição'}
+                                  </p>
+                                  <div className="flex items-center gap-3 mt-2">
+                                    <span className="font-bold text-brand-green text-sm">
+                                      R$ {product.price}
+                                    </span>
+                                    <Badge
+                                      className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 border-none ${
+                                        product.status === 'Ativo'
+                                          ? 'bg-green-100 text-brand-green hover:bg-green-100'
+                                          : product.status === 'Inativo'
+                                            ? 'bg-slate-200 text-slate-600 hover:bg-slate-200'
+                                            : 'bg-red-100 text-brand-red hover:bg-red-100'
+                                      }`}
+                                      variant="outline"
+                                    >
+                                      {product.status}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-slate-400 hover:text-brand-red hover:bg-red-50 shrink-0 hidden sm:flex opacity-0 group-hover/item:opacity-100 transition-opacity"
+                                onClick={() => openEditDrawer(product)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
 
-                        <Button
-                          variant="ghost"
-                          className="mt-2 border-2 border-dashed border-slate-200 text-slate-500 hover:text-brand-red hover:bg-red-50 hover:border-brand-red/50 w-full justify-center h-14 rounded-xl"
-                          onClick={() => openDrawer(cat)}
-                        >
-                          <Plus className="h-5 w-5 mr-2" />
-                          <span className="font-semibold">
-                            Adicionar Item em {cat}
-                          </span>
-                        </Button>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
+                          <Button
+                            variant="ghost"
+                            className="mt-2 border-2 border-dashed border-slate-200 text-slate-500 hover:text-brand-red hover:bg-red-50 hover:border-brand-red/50 w-full justify-center h-14 rounded-xl"
+                            onClick={() => openDrawer(cat)}
+                          >
+                            <Plus className="h-5 w-5 mr-2" />
+                            <span className="font-semibold">
+                              Adicionar Item em {cat}
+                            </span>
+                          </Button>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </div>
                 )
               })}
             </Accordion>
@@ -376,14 +515,18 @@ export default function Cardapio() {
           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
             <SheetHeader>
               <SheetTitle className="text-xl font-bold text-slate-800">
-                Novo Produto
+                {isEditingMode ? 'Editar Produto' : 'Novo Produto'}
               </SheetTitle>
               <SheetDescription className="text-slate-500">
-                Preencha as informações para adicionar um item ao cardápio em{' '}
-                <strong className="text-slate-700">
-                  {editingProduct.category}
-                </strong>
-                .
+                {isEditingMode
+                  ? 'Modifique os detalhes deste produto.'
+                  : 'Preencha as informações para adicionar um item ao cardápio em '}
+                {!isEditingMode && (
+                  <strong className="text-slate-700">
+                    {editingProduct.category}
+                  </strong>
+                )}
+                {!isEditingMode && '.'}
               </SheetDescription>
             </SheetHeader>
           </div>
@@ -606,19 +749,30 @@ export default function Cardapio() {
           </ScrollArea>
 
           <div className="p-6 border-t border-slate-200 bg-white grid grid-cols-2 gap-3 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-            <Button
-              variant="outline"
-              className="w-full font-bold border-slate-300 text-slate-700 hover:bg-slate-50 h-12"
-              onClick={handleFinalize}
-            >
-              Finalizar
-            </Button>
-            <Button
-              className="w-full bg-brand-red hover:bg-red-700 text-white font-bold shadow-sm h-12 transition-transform active:scale-95"
-              onClick={handleSaveAndAddAnother}
-            >
-              Salvar e Adicionar Outro
-            </Button>
+            {isEditingMode ? (
+              <Button
+                className="col-span-2 w-full bg-brand-red hover:bg-red-700 text-white font-bold shadow-sm h-12 transition-transform active:scale-95"
+                onClick={handleFinalize}
+              >
+                Salvar Alterações
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full font-bold border-slate-300 text-slate-700 hover:bg-slate-50 h-12"
+                  onClick={handleFinalize}
+                >
+                  Finalizar
+                </Button>
+                <Button
+                  className="w-full bg-brand-red hover:bg-red-700 text-white font-bold shadow-sm h-12 transition-transform active:scale-95"
+                  onClick={handleSaveAndAddAnother}
+                >
+                  Salvar e Adicionar Outro
+                </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>
