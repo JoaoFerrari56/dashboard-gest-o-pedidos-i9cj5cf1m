@@ -431,22 +431,28 @@ export default function Cardapio() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50 cursor-pointer"
                                 onClick={(e) => startRenaming(e, cat)}
+                                asChild
                               >
-                                <Edit2 className="h-3.5 w-3.5" />
+                                <span>
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </span>
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                                className="h-7 w-7 text-slate-400 hover:text-brand-red hover:bg-red-50 cursor-pointer"
                                 onClick={(e) => {
                                   e.preventDefault()
                                   e.stopPropagation()
                                   setCategoryToDelete(cat)
                                 }}
+                                asChild
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </span>
                               </Button>
                             </div>
                             <Badge
