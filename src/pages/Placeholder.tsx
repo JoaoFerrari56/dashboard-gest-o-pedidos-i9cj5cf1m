@@ -14,7 +14,7 @@ export default function Placeholder() {
       <Card className="max-w-md w-full border-none shadow-sm text-center py-12">
         <CardContent className="flex flex-col items-center justify-center space-y-4">
           <div className="h-20 w-20 bg-slate-100 rounded-full flex items-center justify-center">
-            <Wrench className="h-10 w-10 text-brand-blue" />
+            <Wrench className="h-10 w-10 text-brand-red" />
           </div>
           <h2 className="text-2xl font-bold text-slate-800">
             Página em Construção

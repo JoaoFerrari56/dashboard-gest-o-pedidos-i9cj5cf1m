@@ -90,7 +90,7 @@ export default function Index() {
             <span>11 December 2024</span>
             <ChevronDownIcon className="h-4 w-4 text-slate-400" />
           </div>
-          <Button className="bg-brand-blue hover:bg-blue-700 text-white rounded-lg">
+          <Button className="bg-brand-red hover:bg-red-700 text-white rounded-lg">
             + Novo Envio
           </Button>
         </div>
@@ -104,7 +104,7 @@ export default function Index() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-slate-600 font-medium">
-                    <Truck className="h-5 w-5 text-brand-blue" />
+                    <Truck className="h-5 w-5 text-brand-red" />
                     Em Entrega
                   </div>
                   <span className="text-brand-green text-sm font-semibold flex items-center">
@@ -123,7 +123,7 @@ export default function Index() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-slate-600 font-medium">
-                    <CheckCircle2 className="h-5 w-5 text-brand-blue" />
+                    <CheckCircle2 className="h-5 w-5 text-brand-red" />
                     Entregas Sucesso
                   </div>
                   <span className="text-brand-red text-sm font-semibold flex items-center">
@@ -142,7 +142,7 @@ export default function Index() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-slate-600 font-medium">
-                    <DollarSign className="h-5 w-5 text-brand-blue" />
+                    <DollarSign className="h-5 w-5 text-brand-red" />
                     Receita
                   </div>
                   <span className="text-brand-green text-sm font-semibold flex items-center">
@@ -164,12 +164,12 @@ export default function Index() {
           <Card className="border-none shadow-sm rounded-xl flex-1">
             <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-slate-100">
               <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <BarChartIcon className="h-5 w-5 text-brand-blue" />
+                <BarChartIcon className="h-5 w-5 text-brand-red" />
                 Análise de Entregas
               </CardTitle>
               <div className="flex items-center gap-4 text-sm font-medium">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-brand-blue"></div>
+                  <div className="w-3 h-3 rounded-full bg-brand-red"></div>
                   <span className="text-slate-600">Pacotes Entregues</span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -218,12 +218,12 @@ export default function Index() {
                     <Bar
                       dataKey="delivered"
                       radius={[6, 6, 6, 6]}
-                      activeBar={<Cell fill="#2563eb" />}
+                      activeBar={<Cell fill="#e53e3e" />}
                     >
                       {data.map((entry, index) => (
                         <Cell
                           key={`cell-${index}`}
-                          fill={entry.name === 'Sept' ? '#2563eb' : '#e2e8f0'}
+                          fill={entry.name === 'Sept' ? '#e53e3e' : '#e2e8f0'}
                         />
                       ))}
                     </Bar>
@@ -237,7 +237,7 @@ export default function Index() {
           <Card className="border-none shadow-sm rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <LayoutListIcon className="h-5 w-5 text-brand-blue" />
+                <LayoutListIcon className="h-5 w-5 text-brand-red" />
                 Dados de Atividade
               </CardTitle>
               <div className="flex items-center gap-2">
@@ -324,7 +324,7 @@ export default function Index() {
                   </Button>
                   <Button
                     variant="solid"
-                    className="h-8 w-8 bg-brand-blue text-white rounded-md p-0"
+                    className="h-8 w-8 bg-brand-red text-white rounded-md p-0"
                   >
                     1
                   </Button>
@@ -374,8 +374,8 @@ export default function Index() {
                 <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">
                   Localização
                 </h3>
-                <div className="relative pl-6 pb-6 border-l-2 border-brand-blue/30 last:border-0 last:pb-0">
-                  <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full border-4 border-white bg-brand-blue shadow-sm" />
+                <div className="relative pl-6 pb-6 border-l-2 border-brand-red/30 last:border-0 last:pb-0">
+                  <div className="absolute left-[-9px] top-0 h-4 w-4 rounded-full border-4 border-white bg-brand-red shadow-sm" />
                   <p className="font-semibold text-slate-800 text-sm">
                     Pacote rumo a San Francisco
                   </p>
@@ -439,7 +439,7 @@ export default function Index() {
           <Card className="border-none shadow-sm rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
-                <MessageSquareIcon className="h-5 w-5 text-brand-blue" />
+                <MessageSquareIcon className="h-5 w-5 text-brand-red" />
                 Mensagens Rápidas
               </CardTitle>
               <span className="text-xs font-medium text-brand-green bg-green-50 px-2 py-1 rounded-full">
@@ -457,15 +457,15 @@ export default function Index() {
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"></span>
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800 group-hover:text-brand-blue transition-colors">
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-brand-red transition-colors">
                       Ethan
                     </p>
-                    <p className="text-xs text-brand-blue font-medium mt-0.5">
+                    <p className="text-xs text-brand-red font-medium mt-0.5">
                       Online - 12/12/24
                     </p>
                   </div>
                 </div>
-                <Badge className="bg-blue-50 text-brand-blue font-medium hover:bg-blue-50 border-none">
+                <Badge className="bg-red-50 text-brand-red font-medium hover:bg-red-50 border-none">
                   2 novas mensagens
                 </Badge>
               </div>

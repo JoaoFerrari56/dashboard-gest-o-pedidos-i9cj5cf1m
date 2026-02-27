@@ -43,7 +43,7 @@ export function AppSidebar() {
     <Sidebar variant="inset" className="border-r border-slate-200">
       <SidebarHeader className="flex h-16 items-center justify-between px-6 pt-6">
         <div className="flex items-center gap-2 font-bold text-xl text-slate-800">
-          <div className="flex h-6 w-6 items-center justify-center rounded bg-brand-blue text-white">
+          <div className="flex h-6 w-6 items-center justify-center rounded bg-brand-red text-white">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
@@ -73,7 +73,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className="font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 data-[active=true]:bg-blue-50 data-[active=true]:text-brand-blue rounded-xl py-5"
+                    className="font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 data-[active=true]:bg-red-50 data-[active=true]:text-brand-red rounded-xl py-5 transition-colors"
                   >
                     <Link to={item.url}>
                       <item.icon className="mr-2 h-5 w-5" />
@@ -97,7 +97,7 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={location.pathname === item.url}
-                    className="font-medium text-slate-600 hover:text-brand-blue hover:bg-blue-50 data-[active=true]:bg-blue-50 data-[active=true]:text-brand-blue rounded-xl py-5"
+                    className="font-medium text-slate-600 hover:text-brand-red hover:bg-red-50 data-[active=true]:bg-red-50 data-[active=true]:text-brand-red rounded-xl py-5 transition-colors"
                   >
                     <Link to={item.url}>
                       <item.icon className="mr-2 h-5 w-5" />
@@ -112,16 +112,16 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4">
-        <div className="rounded-xl bg-gradient-to-br from-brand-blue to-blue-600 p-4 text-white shadow-md relative overflow-hidden">
+        <div className="rounded-xl bg-gradient-to-br from-brand-red to-red-600 p-4 text-white shadow-md relative overflow-hidden">
           <div className="relative z-10">
             <h4 className="font-bold mb-1">Planos Pro</h4>
             <div className="text-2xl font-bold mb-1">50% Off</div>
-            <p className="text-xs text-blue-100 mb-3">
+            <p className="text-xs text-red-100 mb-3">
               Aproveite mais recursos com o Pro
             </p>
             <Button
               variant="secondary"
-              className="w-full bg-white text-brand-blue hover:bg-slate-50"
+              className="w-full bg-white text-brand-red hover:bg-slate-50"
               size="sm"
             >
               Testar Pro

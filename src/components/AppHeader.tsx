@@ -10,27 +10,27 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-4 bg-brand-bg px-4 md:px-8 pt-4 pb-2">
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
+        <SidebarTrigger className="-ml-1 hover:text-brand-red transition-colors" />
       </div>
 
       <div className="flex flex-1 items-center gap-4 md:gap-8 justify-between">
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <div className="relative w-full max-w-md group">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-red transition-colors" />
           <Input
             placeholder="Buscar por Nome, Telefone ou Código..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border-none pl-10 h-10 rounded-full shadow-sm placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-brand-blue"
+            className="w-full bg-white border-none pl-10 h-10 rounded-full shadow-sm placeholder:text-slate-400 focus-visible:ring-1 focus-visible:ring-brand-red"
           />
         </div>
 
         <div className="flex items-center gap-4">
           <div className="hidden md:flex items-center gap-3">
-            <button className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm text-slate-600 hover:text-brand-blue transition-colors">
+            <button className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm text-slate-600 hover:text-brand-red transition-colors">
               <Bell className="h-5 w-5" />
               <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-brand-red border-2 border-white"></span>
             </button>
-            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm text-slate-600 hover:text-brand-blue transition-colors">
+            <button className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm text-slate-600 hover:text-brand-red transition-colors">
               <Info className="h-5 w-5" />
             </button>
           </div>
@@ -44,11 +44,11 @@ export function AppHeader() {
               <AvatarFallback>JN</AvatarFallback>
             </Avatar>
             <div className="hidden md:block">
-              <p className="text-sm font-medium text-slate-700">
+              <p className="text-sm font-medium text-slate-700 group-hover:text-brand-red">
                 Bem-vinda, Jane!
               </p>
             </div>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-brand-red transition-colors" />
           </div>
         </div>
       </div>

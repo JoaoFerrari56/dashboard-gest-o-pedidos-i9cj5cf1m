@@ -152,7 +152,7 @@ export default function OrderManager() {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className="border-slate-200 text-slate-700 bg-white"
+            className="border-slate-200 text-slate-700 bg-white hover:text-brand-red transition-colors"
           >
             <FileText className="h-4 w-4 mr-2" />
             Relatório Diário
@@ -300,7 +300,7 @@ export default function OrderManager() {
                 {/* Customer Info */}
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">
-                    <User className="h-4 w-4 mr-2 text-brand-blue" />
+                    <User className="h-4 w-4 mr-2 text-brand-red" />
                     Cliente
                   </h3>
                   <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
@@ -330,7 +330,7 @@ export default function OrderManager() {
                 {/* Order Items */}
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center">
-                    <ShoppingBag className="h-4 w-4 mr-2 text-brand-blue" />
+                    <ShoppingBag className="h-4 w-4 mr-2 text-brand-red" />
                     Itens do Pedido
                   </h3>
                   <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -406,7 +406,7 @@ export default function OrderManager() {
                   {selectedOrder.status === 'ENTREGA' && (
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full hover:text-brand-red transition-colors"
                       onClick={() => setIsDrawerOpen(false)}
                     >
                       Fechar
@@ -446,7 +446,9 @@ function OrderCard({
       <CardContent className="p-4 flex flex-col gap-3">
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-800 text-lg">{order.id}</span>
+            <span className="font-bold text-slate-800 text-lg group-hover:text-brand-red transition-colors">
+              {order.id}
+            </span>
           </div>
           <div onClick={(e) => e.stopPropagation()}>
             <DropdownMenu>
@@ -454,7 +456,7 @@ function OrderCard({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-slate-400 hover:text-slate-700 -mr-2"
+                  className="h-8 w-8 text-slate-400 hover:text-brand-red -mr-2"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
