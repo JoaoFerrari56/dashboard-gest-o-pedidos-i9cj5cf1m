@@ -10,6 +10,8 @@ import {
   Edit2,
   GripVertical,
   Trash2,
+  Tags,
+  X,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -53,6 +55,27 @@ import { cn } from '@/lib/utils'
 
 type ProductStatus = 'Ativo' | 'Inativo' | 'Em falta'
 
+interface Variation {
+  id: string
+  name: string
+  price: string
+}
+
+interface ComplementItem {
+  id: string
+  name: string
+  price: string
+}
+
+interface ComplementGroup {
+  id: string
+  name: string
+  selectionType: 'single' | 'multiple'
+  min: string
+  max: string
+  items: ComplementItem[]
+}
+
 interface Product {
   id: string
   name: string
@@ -63,6 +86,8 @@ interface Product {
   serves: string
   status: ProductStatus
   image: string
+  variations?: Variation[]
+  complementGroups?: ComplementGroup[]
 }
 
 const initialCategories = ['Lanches', 'Bebidas', 'Sobremesas']
@@ -79,17 +104,37 @@ const initialProducts: Product[] = [
     serves: '1',
     status: 'Ativo',
     image: 'https://img.usecurling.com/p/200/200?q=burger&color=orange',
+    variations: [],
+    complementGroups: [
+      {
+        id: 'g1',
+        name: 'Adicionais',
+        selectionType: 'multiple',
+        min: '0',
+        max: '5',
+        items: [
+          { id: 'i1', name: 'Bacon Extra', price: '5,00' },
+          { id: 'i2', name: 'Queijo Extra', price: '4,00' },
+        ],
+      },
+    ],
   },
   {
     id: '2',
-    name: 'Refrigerante Lata',
-    description: 'Coca-cola, Guaraná ou Fanta 350ml.',
+    name: 'Refrigerante',
+    description: 'Coca-cola, Guaraná ou Fanta.',
     category: 'Bebidas',
-    price: '6,50',
-    size: '350ml',
+    price: '',
+    size: '',
     serves: '1',
     status: 'Ativo',
     image: 'https://img.usecurling.com/p/200/200?q=soda',
+    variations: [
+      { id: 'v1', name: 'Lata 350ml', price: '6,50' },
+      { id: 'v2', name: 'Garrafa 600ml', price: '8,90' },
+      { id: 'v3', name: 'Garrafa 2L', price: '14,00' },
+    ],
+    complementGroups: [],
   },
 ]
 
@@ -103,6 +148,22 @@ const defaultProduct: Product = {
   serves: '',
   status: 'Ativo',
   image: '',
+  variations: [],
+  complementGroups: [],
+}
+
+const getDisplayPrice = (p: Product) => {
+  if (p.variations && p.variations.length > 0) {
+    const prices = p.variations
+      .map((v) => parseFloat(v.price.replace(',', '.')) || 0)
+      .filter((v) => v > 0)
+    if (prices.length > 0) {
+      const minPrice = Math.min(...prices)
+      return `A partir de R$ ${minPrice.toFixed(2).replace('.', ',')}`
+    }
+    return 'Preço variável'
+  }
+  return `R$ ${p.price || '0,00'}`
 }
 
 export default function Cardapio() {
@@ -132,6 +193,10 @@ export default function Cardapio() {
   // Deletion State
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
+  const [variationToDelete, setVariationToDelete] = useState<string | null>(
+    null,
+  )
+  const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
 
   const handleAddCategory = () => {
     const trimmed = newCategoryName.trim()
@@ -175,7 +240,7 @@ export default function Cardapio() {
   const handleDeleteProduct = (id: string) => {
     setProducts(products.filter((p) => p.id !== id))
     setProductToDelete(null)
-    setIsDrawerOpen(false) // Close drawer if it was open
+    setIsDrawerOpen(false)
   }
 
   const handleDragStart = (e: React.DragEvent, cat: string) => {
@@ -211,7 +276,11 @@ export default function Cardapio() {
   }
 
   const openEditDrawer = (product: Product) => {
-    setEditingProduct({ ...product })
+    setEditingProduct({
+      ...product,
+      variations: product.variations || [],
+      complementGroups: product.complementGroups || [],
+    })
     setIsDrawerOpen(true)
   }
 
@@ -243,6 +312,137 @@ export default function Cardapio() {
     saveProduct()
     setIsDrawerOpen(false)
   }
+
+  // --- Variations Handlers ---
+  const addVariation = () => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      variations: [
+        ...(prev.variations || []),
+        { id: Date.now().toString(), name: '', price: '' },
+      ],
+    }))
+  }
+
+  const updateVariation = (
+    id: string,
+    field: keyof Variation,
+    value: string,
+  ) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      variations:
+        prev.variations?.map((v) =>
+          v.id === id ? { ...v, [field]: value } : v,
+        ) || [],
+    }))
+  }
+
+  const removeVariation = (id: string) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      variations: prev.variations?.filter((v) => v.id !== id) || [],
+    }))
+    setVariationToDelete(null)
+  }
+
+  // --- Complement Groups Handlers ---
+  const addComplementGroup = () => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups: [
+        ...(prev.complementGroups || []),
+        {
+          id: Date.now().toString(),
+          name: '',
+          selectionType: 'single',
+          min: '0',
+          max: '1',
+          items: [],
+        },
+      ],
+    }))
+  }
+
+  const updateComplementGroup = (
+    id: string,
+    field: keyof ComplementGroup,
+    value: string,
+  ) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups:
+        prev.complementGroups?.map((g) =>
+          g.id === id ? { ...g, [field]: value } : g,
+        ) || [],
+    }))
+  }
+
+  const removeComplementGroup = (id: string) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups: prev.complementGroups?.filter((g) => g.id !== id) || [],
+    }))
+    setGroupToDelete(null)
+  }
+
+  const addComplementItem = (groupId: string) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups:
+        prev.complementGroups?.map((g) => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              items: [
+                ...g.items,
+                { id: Date.now().toString(), name: '', price: '' },
+              ],
+            }
+          }
+          return g
+        }) || [],
+    }))
+  }
+
+  const updateComplementItem = (
+    groupId: string,
+    itemId: string,
+    field: keyof ComplementItem,
+    value: string,
+  ) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups:
+        prev.complementGroups?.map((g) => {
+          if (g.id === groupId) {
+            return {
+              ...g,
+              items: g.items.map((i) =>
+                i.id === itemId ? { ...i, [field]: value } : i,
+              ),
+            }
+          }
+          return g
+        }) || [],
+    }))
+  }
+
+  const removeComplementItem = (groupId: string, itemId: string) => {
+    setEditingProduct((prev) => ({
+      ...prev,
+      complementGroups:
+        prev.complementGroups?.map((g) => {
+          if (g.id === groupId) {
+            return { ...g, items: g.items.filter((i) => i.id !== itemId) }
+          }
+          return g
+        }) || [],
+    }))
+  }
+
+  const hasVariations =
+    editingProduct.variations && editingProduct.variations.length > 0
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] min-h-0 relative">
@@ -487,7 +687,7 @@ export default function Cardapio() {
                                   )}
                                 </div>
                                 <div>
-                                  <h4 className="font-bold text-slate-800 leading-tight">
+                                  <h4 className="font-bold text-slate-800 leading-tight flex items-center gap-2">
                                     {product.name}
                                   </h4>
                                   <p className="text-xs text-slate-500 line-clamp-1 mt-1 max-w-sm">
@@ -495,7 +695,7 @@ export default function Cardapio() {
                                   </p>
                                   <div className="flex items-center gap-3 mt-2">
                                     <span className="font-bold text-brand-green text-sm">
-                                      R$ {product.price}
+                                      {getDisplayPrice(product)}
                                     </span>
                                     <Badge
                                       className={`text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 border-none ${
@@ -509,6 +709,15 @@ export default function Cardapio() {
                                     >
                                       {product.status}
                                     </Badge>
+                                    {product.complementGroups &&
+                                      product.complementGroups.length > 0 && (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[10px] border-orange-200 text-brand-orange bg-orange-50 px-1.5 py-0 font-bold"
+                                        >
+                                          + Opções
+                                        </Badge>
+                                      )}
                                   </div>
                                 </div>
                               </div>
@@ -568,7 +777,7 @@ export default function Cardapio() {
 
       {/* Product Drawer */}
       <Sheet open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-        <SheetContent className="w-full sm:max-w-md lg:max-w-lg p-0 flex flex-col bg-white border-l border-slate-200">
+        <SheetContent className="w-full sm:max-w-md lg:max-w-xl p-0 flex flex-col bg-white border-l border-slate-200">
           <div className="p-6 border-b border-slate-100 bg-slate-50/50">
             <SheetHeader>
               <SheetTitle className="text-xl font-bold text-slate-800">
@@ -688,20 +897,96 @@ export default function Cardapio() {
                 </div>
               </div>
 
+              {/* Variações de Preço */}
+              <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Tags className="h-5 w-5 text-brand-red" />
+                    <h3 className="font-bold text-slate-800">
+                      Variações de Preço
+                    </h3>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={addVariation}
+                    className="text-brand-red border-brand-red/30 hover:bg-red-50 bg-white"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Adicionar
+                  </Button>
+                </div>
+                <p className="text-sm text-slate-500">
+                  Adicione tamanhos ou versões diferentes do seu produto.
+                </p>
+
+                {editingProduct.variations?.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex gap-3 items-end bg-white p-3 rounded-lg border border-slate-200 shadow-sm animate-in fade-in slide-in-from-top-2"
+                  >
+                    <div className="flex-1 space-y-1.5">
+                      <Label className="text-xs text-slate-500 font-semibold">
+                        Nome (ex: P, M, G)
+                      </Label>
+                      <Input
+                        value={v.name}
+                        onChange={(e) =>
+                          updateVariation(v.id, 'name', e.target.value)
+                        }
+                        placeholder="Tamanho M"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <Label className="text-xs text-slate-500 font-semibold">
+                        Preço (R$)
+                      </Label>
+                      <Input
+                        value={v.price}
+                        onChange={(e) =>
+                          updateVariation(v.id, 'price', e.target.value)
+                        }
+                        placeholder="0,00"
+                        className="h-9"
+                      />
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setVariationToDelete(v.id)}
+                      className="text-slate-400 hover:text-brand-red hover:bg-red-50 shrink-0 h-9 w-9"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
               {/* Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-slate-700">
-                    Preço (R$) *
+                  <Label
+                    className={cn(
+                      'text-sm font-semibold',
+                      hasVariations ? 'text-slate-400' : 'text-slate-700',
+                    )}
+                  >
+                    Preço Base (R$) {hasVariations ? '(Desativado)' : '*'}
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold text-sm">
+                    <span
+                      className={cn(
+                        'absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-sm',
+                        hasVariations ? 'text-slate-300' : 'text-slate-400',
+                      )}
+                    >
                       R$
                     </span>
                     <Input
-                      className="pl-10 bg-slate-50 border-slate-200 focus-visible:ring-brand-red h-11 font-medium"
+                      disabled={hasVariations}
+                      className="pl-10 bg-slate-50 border-slate-200 focus-visible:ring-brand-red h-11 font-medium disabled:opacity-50 disabled:bg-slate-100"
                       placeholder="0,00"
-                      value={editingProduct.price}
+                      value={hasVariations ? '' : editingProduct.price}
                       onChange={(e) =>
                         setEditingProduct({
                           ...editingProduct,
@@ -710,6 +995,11 @@ export default function Cardapio() {
                       }
                     />
                   </div>
+                  {hasVariations && (
+                    <p className="text-[10px] text-slate-400 font-medium">
+                      O preço base é definido pelas variações acima.
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label className="text-sm font-semibold text-slate-700">
@@ -782,23 +1072,217 @@ export default function Cardapio() {
                 </div>
               </div>
 
-              {/* Complements */}
-              <div className="bg-orange-50/50 rounded-xl p-6 border border-orange-100 space-y-4">
+              {/* Grupos de Complementos */}
+              <div className="bg-orange-50/50 rounded-xl p-6 border border-orange-100 space-y-5">
                 <div className="flex items-center gap-2">
                   <Layers className="h-5 w-5 text-brand-orange" />
-                  <h3 className="font-bold text-slate-800">Complementos</h3>
+                  <h3 className="font-bold text-slate-800">
+                    Grupos de Complementos
+                  </h3>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed">
                   Ofereça opções extras para este produto, como ingredientes
                   adicionais ou escolhas obrigatórias.
                 </p>
+
+                {editingProduct.complementGroups?.map((g) => (
+                  <div
+                    key={g.id}
+                    className="bg-white rounded-xl border border-orange-200 p-5 space-y-4 shadow-sm animate-in fade-in slide-in-from-top-2"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1 space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                            Nome do Grupo
+                          </Label>
+                          <Input
+                            value={g.name}
+                            onChange={(e) =>
+                              updateComplementGroup(
+                                g.id,
+                                'name',
+                                e.target.value,
+                              )
+                            }
+                            placeholder="Ex: Escolha o ponto da carne"
+                            className="border-slate-200 h-10 font-medium"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                              Tipo de Seleção
+                            </Label>
+                            <Select
+                              value={g.selectionType}
+                              onValueChange={(v) =>
+                                updateComplementGroup(g.id, 'selectionType', v)
+                              }
+                            >
+                              <SelectTrigger className="h-9 bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="single">
+                                  Escolha Única
+                                </SelectItem>
+                                <SelectItem value="multiple">
+                                  Múltipla Escolha
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                              Mínimo Obrigatório
+                            </Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              className="h-9 bg-white"
+                              value={g.min}
+                              onChange={(e) =>
+                                updateComplementGroup(
+                                  g.id,
+                                  'min',
+                                  e.target.value,
+                                )
+                              }
+                              onBlur={(e) => {
+                                const minVal = parseInt(e.target.value) || 0
+                                const maxVal = parseInt(g.max) || 0
+                                updateComplementGroup(
+                                  g.id,
+                                  'min',
+                                  minVal.toString(),
+                                )
+                                if (maxVal < minVal) {
+                                  updateComplementGroup(
+                                    g.id,
+                                    'max',
+                                    minVal.toString(),
+                                  )
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                              Máximo Permitido
+                            </Label>
+                            <Input
+                              type="number"
+                              min={g.min}
+                              className="h-9 bg-white"
+                              value={g.max}
+                              onChange={(e) =>
+                                updateComplementGroup(
+                                  g.id,
+                                  'max',
+                                  e.target.value,
+                                )
+                              }
+                              onBlur={(e) => {
+                                const maxVal = parseInt(e.target.value) || 0
+                                const minVal = parseInt(g.min) || 0
+                                if (maxVal < minVal) {
+                                  updateComplementGroup(
+                                    g.id,
+                                    'max',
+                                    minVal.toString(),
+                                  )
+                                } else {
+                                  updateComplementGroup(
+                                    g.id,
+                                    'max',
+                                    maxVal.toString(),
+                                  )
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setGroupToDelete(g.id)}
+                        className="shrink-0 text-slate-400 hover:text-brand-red hover:bg-red-50 h-8 w-8 -mt-1 -mr-1"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                      <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                        Opções do Grupo
+                      </Label>
+                      <div className="space-y-2">
+                        {g.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex gap-2 items-center"
+                          >
+                            <Input
+                              className="h-9 text-sm border-slate-200 bg-slate-50 focus:bg-white transition-colors"
+                              placeholder="Nome do adicional"
+                              value={item.name}
+                              onChange={(e) =>
+                                updateComplementItem(
+                                  g.id,
+                                  item.id,
+                                  'name',
+                                  e.target.value,
+                                )
+                              }
+                            />
+                            <Input
+                              className="h-9 text-sm w-28 shrink-0 border-slate-200 bg-slate-50 focus:bg-white transition-colors"
+                              placeholder="R$ 0,00"
+                              value={item.price}
+                              onChange={(e) =>
+                                updateComplementItem(
+                                  g.id,
+                                  item.id,
+                                  'price',
+                                  e.target.value,
+                                )
+                              }
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 shrink-0 text-slate-400 hover:text-brand-red hover:bg-red-50"
+                              onClick={() =>
+                                removeComplementItem(g.id, item.id)
+                              }
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => addComplementItem(g.id)}
+                        className="text-brand-orange hover:text-orange-700 hover:bg-orange-50 h-8 px-3"
+                      >
+                        <Plus className="h-3 w-3 mr-1.5" /> Adicionar Opção
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+
                 <Button
                   variant="outline"
+                  onClick={addComplementGroup}
                   className="w-full bg-white border-dashed border-orange-200 text-brand-orange hover:text-orange-700 hover:border-orange-400 hover:bg-orange-50 h-12"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   <span className="font-semibold">
-                    Adicionar novos grupos de adicionais
+                    Adicionar novo grupo de adicionais
                   </span>
                 </Button>
               </div>
@@ -899,6 +1383,59 @@ export default function Cardapio() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete Variation Confirmation */}
+      <AlertDialog
+        open={!!variationToDelete}
+        onOpenChange={(open) => !open && setVariationToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Variação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta variação de preço será removida do produto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-brand-red text-white hover:bg-red-700"
+              onClick={() =>
+                variationToDelete && removeVariation(variationToDelete)
+              }
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Group Confirmation */}
+      <AlertDialog
+        open={!!groupToDelete}
+        onOpenChange={(open) => !open && setGroupToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Grupo de Complementos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este grupo e todas as suas opções serão removidos do produto
+              permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-brand-red text-white hover:bg-red-700"
+              onClick={() =>
+                groupToDelete && removeComplementGroup(groupToDelete)
+              }
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
@@ -969,13 +1506,19 @@ function PreviewPanel({
                             {p.description}
                           </p>
                         </div>
-                        <div className="font-bold text-slate-800 text-sm mt-3 flex items-center gap-2">
-                          R$ {p.price}
+                        <div className="font-bold text-slate-800 text-sm mt-3 flex flex-wrap items-center gap-2">
+                          {getDisplayPrice(p)}
                           {p.status === 'Em falta' && (
                             <span className="text-[9px] text-brand-red uppercase font-black bg-red-50 px-1.5 py-0.5 rounded-sm">
                               Esgotado
                             </span>
                           )}
+                          {p.complementGroups &&
+                            p.complementGroups.length > 0 && (
+                              <span className="text-[9px] text-brand-orange bg-orange-50 px-1.5 py-0.5 rounded-sm border border-orange-100 font-semibold">
+                                + Opções
+                              </span>
+                            )}
                         </div>
                       </div>
                       {p.image && (
