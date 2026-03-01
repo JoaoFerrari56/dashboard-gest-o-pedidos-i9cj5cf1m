@@ -12,6 +12,7 @@ import {
   Trash2,
   Tags,
   X,
+  ShoppingBag,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -51,7 +52,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 
 type ProductStatus = 'Ativo' | 'Inativo' | 'Em falta'
 
@@ -88,6 +91,20 @@ interface Product {
   image: string
   variations?: Variation[]
   complementGroups?: ComplementGroup[]
+}
+
+interface CartItem {
+  id: string
+  product: Product
+  variation?: Variation
+  complements: { groupName: string; item: ComplementItem }[]
+  quantity: number
+}
+
+const parsePrice = (priceStr: string | undefined | null) => {
+  if (!priceStr) return 0
+  const clean = priceStr.toString().replace(/[^\d.,]/g, '')
+  return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
 }
 
 const initialCategories = ['Lanches', 'Bebidas', 'Sobremesas']
@@ -1451,6 +1468,74 @@ function PreviewPanel({
   categories: string[]
   products: Product[]
 }) {
+  const { toast } = useToast()
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [isCartOpen, setIsCartOpen] = useState(false)
+
+  const handleAddToCart = (product: Product) => {
+    if (product.status !== 'Ativo') {
+      toast({
+        title: 'Item indisponível',
+        description: 'Este produto não pode ser adicionado no momento.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const variation =
+      product.variations && product.variations.length > 0
+        ? product.variations[0]
+        : undefined
+
+    const complements = []
+    if (product.complementGroups && product.complementGroups.length > 0) {
+      const group = product.complementGroups[0]
+      if (group.items && group.items.length > 0) {
+        complements.push({
+          groupName: group.name,
+          item: group.items[0],
+        })
+      }
+    }
+
+    const newItem: CartItem = {
+      id: Date.now().toString() + Math.random().toString(36).substring(7),
+      product,
+      variation,
+      complements,
+      quantity: 1,
+    }
+
+    setCartItems((prev) => [...prev, newItem])
+
+    toast({
+      title: 'Adicionado à sacola',
+      description: `${product.name} foi adicionado para teste.`,
+    })
+  }
+
+  const removeCartItem = (id: string) => {
+    setCartItems(cartItems.filter((item) => item.id !== id))
+  }
+
+  const getItemTotal = (item: CartItem) => {
+    const basePrice = item.variation
+      ? parsePrice(item.variation.price)
+      : parsePrice(item.product.price)
+    const compsPrice = item.complements.reduce(
+      (sum, c) => sum + parsePrice(c.item.price),
+      0,
+    )
+    return (basePrice + compsPrice) * item.quantity
+  }
+
+  const cartTotal = cartItems.reduce(
+    (total, item) => total + getItemTotal(item),
+    0,
+  )
+
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
   return (
     <div className="bg-slate-100 rounded-[2.5rem] p-3 shadow-xl border-[10px] border-slate-800 relative h-full w-full max-w-[380px] mx-auto flex flex-col overflow-hidden">
       {/* Notch */}
@@ -1463,8 +1548,8 @@ function PreviewPanel({
           <h2 className="text-2xl font-black relative z-10 drop-shadow-sm">
             {menuName || 'Meu Cardápio'}
           </h2>
-          <p className="text-red-100 text-sm mt-1 relative z-10 font-medium">
-            Faça seu pedido agora
+          <p className="text-red-100 text-xs mt-1.5 relative z-10 font-medium">
+            Clique nos itens para simular o pedido
           </p>
         </div>
 
@@ -1495,7 +1580,13 @@ function PreviewPanel({
                   {catProducts.map((p) => (
                     <div
                       key={p.id}
-                      className="flex gap-3 group relative bg-white p-3 rounded-2xl shadow-sm border border-slate-100/50"
+                      onClick={() => handleAddToCart(p)}
+                      className={cn(
+                        'flex gap-3 group relative bg-white p-3 rounded-2xl shadow-sm border border-slate-100/50 transition-all',
+                        p.status === 'Ativo'
+                          ? 'cursor-pointer hover:border-brand-red/50 hover:shadow-md'
+                          : 'opacity-70',
+                      )}
                     >
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
@@ -1552,19 +1643,148 @@ function PreviewPanel({
           )}
         </div>
 
-        {/* Floating Cart Button Fake */}
+        {/* Active Cart Summary Button */}
         {products.filter((p) => p.status !== 'Inativo').length > 0 && (
           <div className="sticky bottom-6 left-0 right-0 px-5 mt-auto z-20">
-            <div className="bg-brand-red text-white p-3.5 rounded-2xl shadow-lg flex items-center justify-between cursor-pointer hover:bg-red-700 transition-colors">
-              <span className="bg-black/20 px-2.5 py-1 rounded-lg text-xs font-bold">
-                0 itens
+            <div
+              className={cn(
+                'text-white p-3.5 rounded-2xl shadow-lg flex items-center justify-between cursor-pointer transition-all active:scale-95',
+                totalItems > 0
+                  ? 'bg-brand-red hover:bg-red-700'
+                  : 'bg-slate-800 hover:bg-slate-700',
+              )}
+              onClick={() => setIsCartOpen(true)}
+            >
+              <span className="bg-black/20 px-2.5 py-1 rounded-lg text-xs font-bold shadow-inner">
+                {totalItems} itens
               </span>
-              <span className="font-bold text-sm">Ver Sacola</span>
-              <span className="font-bold text-sm">R$ 0,00</span>
+              <span className="font-bold text-sm">Ver Resumo do Pedido</span>
+              <span className="font-bold text-sm shadow-sm">
+                R$ {cartTotal.toFixed(2).replace('.', ',')}
+              </span>
             </div>
           </div>
         )}
       </div>
+
+      {/* Order Summary Modal */}
+      <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+        <SheetContent className="w-full sm:max-w-md p-0 flex flex-col bg-slate-50 border-l border-slate-200">
+          <div className="p-6 border-b border-slate-200 bg-white shadow-sm z-10">
+            <SheetHeader>
+              <SheetTitle className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                <ShoppingBag className="h-5 w-5 text-brand-red" />
+                Resumo do Pedido
+              </SheetTitle>
+              <SheetDescription className="text-slate-500">
+                Revise os itens selecionados antes de finalizar.
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          <ScrollArea className="flex-1 p-6 relative">
+            {cartItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-60">
+                <ShoppingBag className="h-12 w-12 text-slate-400 mb-4" />
+                <p className="text-slate-600 font-medium">
+                  Sua sacola está vazia.
+                </p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Clique em um produto no cardápio para adicionar.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 pb-4">
+                {cartItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col gap-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-bold text-slate-800 text-sm">
+                          {item.quantity}x {item.product.name}
+                        </h4>
+
+                        {item.variation && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            Variação:{' '}
+                            <span className="font-semibold text-slate-700">
+                              {item.variation.name}
+                            </span>
+                          </p>
+                        )}
+
+                        {item.complements.length > 0 && (
+                          <div className="mt-3 space-y-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                              Adicionais
+                            </p>
+                            {item.complements.map((c, idx) => (
+                              <div
+                                key={idx}
+                                className="flex justify-between items-center text-xs text-slate-600"
+                              >
+                                <span>+ {c.item.name}</span>
+                                <span className="text-slate-500 font-medium">
+                                  R$ {c.item.price}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-right shrink-0 flex flex-col items-end">
+                        <p className="font-bold text-brand-green text-sm">
+                          R$ {getItemTotal(item).toFixed(2).replace('.', ',')}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeCartItem(item.id)}
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 h-7 px-2 mt-2 -mr-2 text-xs font-semibold"
+                        >
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          <div className="p-6 bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 shrink-0">
+            <div className="space-y-3 mb-6">
+              <div className="flex justify-between text-sm text-slate-500 font-medium">
+                <span>Subtotal</span>
+                <span>R$ {cartTotal.toFixed(2).replace('.', ',')}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between text-xl font-bold text-slate-800">
+                <span>Total</span>
+                <span>R$ {cartTotal.toFixed(2).replace('.', ',')}</span>
+              </div>
+            </div>
+            <Button
+              className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-12 text-lg rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              disabled={cartItems.length === 0}
+              onClick={() => {
+                toast({
+                  title: 'Pedido Finalizado!',
+                  description:
+                    'Esta é uma simulação. O pedido foi enviado com sucesso.',
+                })
+                setCartItems([])
+                setIsCartOpen(false)
+              }}
+            >
+              Finalizar Pedido
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
