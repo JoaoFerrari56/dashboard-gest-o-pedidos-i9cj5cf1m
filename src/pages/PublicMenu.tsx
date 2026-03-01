@@ -1,18 +1,15 @@
 import { useState, useMemo } from 'react'
-import { Plus, Minus, ShoppingBag, ArrowLeft, Info, Search } from 'lucide-react'
+import { Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
@@ -73,7 +70,7 @@ const parsePrice = (priceStr: string | undefined | null) => {
 }
 
 const formatPrice = (value: number) => {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return `R$ ${value.toFixed(2).replace('.', ',')}`
 }
 
 const getDisplayPrice = (p: Product) => {
@@ -87,7 +84,7 @@ const getDisplayPrice = (p: Product) => {
     }
     return 'Preço variável'
   }
-  return formatPrice(parsePrice(p.price))
+  return p.price ? `R$ ${p.price}` : 'R$ 0,00'
 }
 
 // --- Mock Data (Synced with Cardapio.tsx) ---
@@ -104,7 +101,7 @@ const mockProducts: Product[] = [
     size: '400g',
     serves: '1',
     status: 'Ativo',
-    image: 'https://img.usecurling.com/p/400/400?q=burger&color=orange',
+    image: 'https://img.usecurling.com/p/200/200?q=burger&color=orange',
     variations: [],
     complementGroups: [
       {
@@ -116,19 +113,6 @@ const mockProducts: Product[] = [
         items: [
           { id: 'i1', name: 'Bacon Extra', price: '5,00' },
           { id: 'i2', name: 'Queijo Extra', price: '4,00' },
-          { id: 'i3', name: 'Cebola Caramelizada', price: '3,00' },
-        ],
-      },
-      {
-        id: 'g2',
-        name: 'Ponto da Carne',
-        selectionType: 'single',
-        min: '1',
-        max: '1',
-        items: [
-          { id: 'i4', name: 'Mal Passada', price: '0,00' },
-          { id: 'i5', name: 'Ao Ponto', price: '0,00' },
-          { id: 'i6', name: 'Bem Passada', price: '0,00' },
         ],
       },
     ],
@@ -136,13 +120,13 @@ const mockProducts: Product[] = [
   {
     id: '2',
     name: 'Refrigerante',
-    description: 'Gelado e refrescante.',
+    description: 'Coca-cola, Guaraná ou Fanta.',
     category: 'Bebidas',
     price: '',
     size: '',
     serves: '1',
     status: 'Ativo',
-    image: 'https://img.usecurling.com/p/400/400?q=soda',
+    image: 'https://img.usecurling.com/p/200/200?q=soda',
     variations: [
       { id: 'v1', name: 'Lata 350ml', price: '6,50' },
       { id: 'v2', name: 'Garrafa 600ml', price: '8,90' },
@@ -150,35 +134,10 @@ const mockProducts: Product[] = [
     ],
     complementGroups: [],
   },
-  {
-    id: '3',
-    name: 'Batata Frita',
-    description:
-      'Porção generosa de batatas fritas crocantes por fora e macias por dentro.',
-    category: 'Lanches',
-    price: '22,00',
-    size: '300g',
-    serves: '2',
-    status: 'Ativo',
-    image: 'https://img.usecurling.com/p/400/400?q=fries',
-  },
-  {
-    id: '4',
-    name: 'Brownie de Chocolate',
-    description: 'Brownie quentinho com calda de chocolate e pedaços de nozes.',
-    category: 'Sobremesas',
-    price: '18,50',
-    size: '150g',
-    serves: '1',
-    status: 'Em falta',
-    image: 'https://img.usecurling.com/p/400/400?q=brownie',
-  },
 ]
 
 export default function PublicMenu() {
   const { toast } = useToast()
-  const [activeCategory, setActiveCategory] = useState(mockCategories[0])
-  const [searchQuery, setSearchQuery] = useState('')
 
   // Cart State
   const [cartItems, setCartItems] = useState<CartItem[]>([])
@@ -186,16 +145,6 @@ export default function PublicMenu() {
 
   // Product Modal State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery) return mockProducts
-    const q = searchQuery.toLowerCase()
-    return mockProducts.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q),
-    )
-  }, [searchQuery])
 
   const cartTotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -209,90 +158,34 @@ export default function PublicMenu() {
     })
   }
 
-  const removeCartItem = (id: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id))
-  }
-
-  const scrollToCategory = (cat: string) => {
-    setActiveCategory(cat)
-    const element = document.getElementById(`category-${cat}`)
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 selection:bg-brand-red selection:text-white">
       {/* Header Banner */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div className="h-40 bg-gradient-to-br from-slate-800 to-slate-900 relative overflow-hidden flex items-center justify-center">
-          <div className="absolute inset-0 bg-[url('https://img.usecurling.com/p/800/400?q=restaurant%20food')] opacity-30 mix-blend-overlay object-cover"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-          <div className="relative z-10 flex flex-col items-center text-center mt-8">
-            <div className="h-20 w-20 bg-white rounded-full p-1 shadow-xl -mb-10 relative z-20 overflow-hidden border-4 border-white">
-              <img
-                src="https://img.usecurling.com/i?q=burger&color=solid-black&shape=fill"
-                className="w-full h-full object-contain p-2"
-                alt="Logo"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="pt-12 pb-4 px-4 text-center max-w-3xl mx-auto">
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-            Deliro Delivery
-          </h1>
-          <p className="text-slate-500 text-sm mt-1 mb-4 flex items-center justify-center gap-1.5 font-medium">
-            <Info className="h-4 w-4" /> Aberto até as 23:00
-          </p>
-
-          <div className="relative max-w-md mx-auto group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-brand-red transition-colors" />
-            <Input
-              placeholder="Buscar no cardápio..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 bg-slate-100/50 border-transparent focus-visible:ring-brand-red focus-visible:bg-white rounded-full shadow-sm"
-            />
-          </div>
-        </div>
-
-        {/* Category Navigation */}
-        {!searchQuery && (
-          <ScrollArea className="w-full border-t border-slate-100 bg-white shadow-sm">
-            <div className="flex w-max space-x-2 p-3 px-4">
-              {mockCategories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={activeCategory === cat ? 'default' : 'outline'}
-                  onClick={() => scrollToCategory(cat)}
-                  className={cn(
-                    'rounded-full px-5 font-semibold transition-all h-9',
-                    activeCategory === cat
-                      ? 'bg-brand-red hover:bg-red-700 text-white shadow-md border-brand-red'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900',
-                  )}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-            <ScrollBar orientation="horizontal" className="hidden" />
-          </ScrollArea>
-        )}
+      <div className="bg-gradient-to-br from-brand-red to-red-700 pt-16 pb-12 px-6 text-center text-white relative overflow-hidden shadow-sm">
+        <div className="absolute inset-0 bg-[url('https://img.usecurling.com/p/400/200?q=pattern&color=red')] opacity-20 mix-blend-overlay"></div>
+        <h1 className="text-[32px] md:text-4xl font-black relative z-10 drop-shadow-sm tracking-tight leading-none">
+          Deliro Delivery
+        </h1>
+        <p className="text-red-100 text-[15px] md:text-base mt-2.5 relative z-10 font-medium">
+          Clique nos itens para simular o pedido
+        </p>
       </div>
 
       {/* Main Content */}
-      <main className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
-        {searchQuery ? (
-          <div className="space-y-4">
-            <h2 className="font-bold text-slate-800 text-lg">
-              Resultados para "{searchQuery}"
-            </h2>
-            {filteredProducts.length > 0 ? (
+      <main className="max-w-3xl mx-auto p-5 md:p-8 space-y-10 mt-2">
+        {mockCategories.map((cat) => {
+          const productsInCategory = mockProducts.filter(
+            (p) => p.category === cat,
+          )
+          if (productsInCategory.length === 0) return null
+
+          return (
+            <div key={cat} id={`category-${cat}`} className="space-y-5">
+              <h2 className="font-bold text-slate-800 text-xl border-b border-slate-200/80 pb-3 tracking-tight">
+                {cat}
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredProducts.map((p) => (
+                {productsInCategory.map((p) => (
                   <ProductCard
                     key={p.id}
                     product={p}
@@ -300,47 +193,9 @@ export default function PublicMenu() {
                   />
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-12 text-slate-500 bg-white rounded-2xl border border-slate-200 border-dashed">
-                Nenhum produto encontrado.
-              </div>
-            )}
-          </div>
-        ) : (
-          mockCategories.map((cat) => {
-            const productsInCategory = mockProducts.filter(
-              (p) => p.category === cat,
-            )
-            if (productsInCategory.length === 0) return null
-
-            return (
-              <div
-                key={cat}
-                id={`category-${cat}`}
-                className="space-y-4 scroll-mt-48"
-              >
-                <h2 className="font-bold text-slate-800 text-xl flex items-center gap-2">
-                  {cat}
-                  <Badge
-                    variant="secondary"
-                    className="bg-slate-200 text-slate-600 font-bold ml-2"
-                  >
-                    {productsInCategory.length}
-                  </Badge>
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {productsInCategory.map((p) => (
-                    <ProductCard
-                      key={p.id}
-                      product={p}
-                      onClick={() => setSelectedProduct(p)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )
-          })
-        )}
+            </div>
+          )
+        })}
       </main>
 
       {/* Floating Cart Button */}
@@ -502,28 +357,31 @@ function ProductCard({
 }) {
   const isAvailable =
     product.status !== 'Em falta' && product.status !== 'Inativo'
+  const hasOptions =
+    (product.variations && product.variations.length > 0) ||
+    (product.complementGroups && product.complementGroups.length > 0)
 
   return (
     <div
       onClick={() => isAvailable && onClick()}
       className={cn(
-        'flex gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200/60 transition-all',
+        'flex gap-4 bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 transition-all',
         isAvailable
-          ? 'cursor-pointer hover:border-brand-red/40 hover:shadow-md active:scale-[0.98]'
+          ? 'cursor-pointer hover:border-brand-red/30 hover:shadow-md active:scale-[0.98]'
           : 'opacity-60 grayscale-[0.5]',
       )}
     >
       <div className="flex-1 flex flex-col justify-between">
         <div>
-          <h3 className="font-bold text-slate-800 text-base leading-tight mb-1">
+          <h3 className="font-bold text-slate-800 text-[15px] leading-tight mb-1.5">
             {product.name}
           </h3>
-          <p className="text-sm text-slate-500 line-clamp-2 leading-relaxed">
+          <p className="text-[13px] text-slate-500 line-clamp-2 leading-relaxed pr-2">
             {product.description}
           </p>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="font-bold text-brand-green">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="font-bold text-slate-800 text-[15px]">
             {getDisplayPrice(product)}
           </span>
           {!isAvailable && (
@@ -531,17 +389,15 @@ function ProductCard({
               Esgotado
             </Badge>
           )}
-          {isAvailable &&
-            product.complementGroups &&
-            product.complementGroups.length > 0 && (
-              <span className="text-[10px] font-bold text-brand-orange bg-orange-50 px-2 py-0.5 rounded-full">
-                Opções
-              </span>
-            )}
+          {isAvailable && hasOptions && (
+            <span className="text-[11px] font-semibold text-[#d97706] bg-orange-50 border border-orange-100/80 px-2.5 py-[3px] rounded-md">
+              + Opções
+            </span>
+          )}
         </div>
       </div>
       {product.image && (
-        <div className="h-28 w-28 rounded-xl overflow-hidden shrink-0 shadow-sm border border-slate-100 relative">
+        <div className="h-[90px] w-[90px] rounded-xl overflow-hidden shrink-0 shadow-sm border border-slate-100 relative">
           <img
             src={product.image}
             className="w-full h-full object-cover"
