@@ -1,4 +1,3 @@
-/* Toast Component primitives - A component that displays a toast (a component that displays a notification) - from shadcn/ui (exposes ToastProvider, ToastViewport, Toast, ToastAction, ToastClose, ToastTitle, ToastDescription) */
 import * as React from 'react'
 import * as ToastPrimitives from '@radix-ui/react-toast'
 import { cva, type VariantProps } from 'class-variance-authority'

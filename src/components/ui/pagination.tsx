@@ -1,4 +1,3 @@
-/* Pagination Component primitives - A component that displays a pagination - from shadcn/ui (exposes Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis) */
 import * as React from 'react'
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
 

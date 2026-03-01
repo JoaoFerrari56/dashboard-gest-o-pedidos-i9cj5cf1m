@@ -10,6 +10,7 @@ import Atendimento from './pages/Atendimento'
 import Cardapio from './pages/Cardapio'
 import Placeholder from './pages/Placeholder'
 import NotFound from './pages/NotFound'
+import PublicMenu from './pages/PublicMenu'
 
 const App = () => (
   <BrowserRouter
@@ -20,6 +21,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
+          <Route path="/visualizacao-cardapio" element={<PublicMenu />} />
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/pedidos" element={<OrderManager />} />

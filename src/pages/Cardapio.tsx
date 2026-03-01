@@ -13,6 +13,8 @@ import {
   Tags,
   X,
   ShoppingBag,
+  ExternalLink,
+  Link as LinkIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -184,6 +186,7 @@ const getDisplayPrice = (p: Product) => {
 }
 
 export default function Cardapio() {
+  const { toast } = useToast()
   const [menuName, setMenuName] = useState('Deliro Delivery')
   const [menuStatus, setMenuStatus] = useState('Visível')
 
@@ -214,6 +217,21 @@ export default function Cardapio() {
     null,
   )
   const [groupToDelete, setGroupToDelete] = useState<string | null>(null)
+
+  const handleCopyLink = () => {
+    const publicUrl =
+      'https://dashboard-gestao-pedidos-ab1ea.goskip.app/visualizacao-cardapio'
+    navigator.clipboard.writeText(publicUrl)
+    toast({
+      title: 'Link copiado!',
+      description:
+        'O link público do cardápio foi copiado para a área de transferência.',
+    })
+  }
+
+  const handleViewMenu = () => {
+    window.open('/visualizacao-cardapio', '_blank')
+  }
 
   const handleAddCategory = () => {
     const trimmed = newCategoryName.trim()
@@ -463,7 +481,7 @@ export default function Cardapio() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] min-h-0 relative">
-      <div className="flex items-center justify-between mb-6 shrink-0">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 shrink-0 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
             Gestão do Cardápio
@@ -471,6 +489,23 @@ export default function Cardapio() {
           <p className="text-sm text-slate-500 mt-1">
             Organize categorias e produtos do seu menu digital
           </p>
+        </div>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <Button
+            variant="outline"
+            className="bg-white border-slate-200 text-slate-700 hover:bg-slate-50 flex-1 sm:flex-none"
+            onClick={handleCopyLink}
+          >
+            <LinkIcon className="h-4 w-4 mr-2" />
+            Copiar Link
+          </Button>
+          <Button
+            className="bg-brand-red hover:bg-red-700 text-white shadow-sm flex-1 sm:flex-none"
+            onClick={handleViewMenu}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Ver Cardápio
+          </Button>
         </div>
       </div>
 
