@@ -272,7 +272,7 @@ export const Constants = {
 //   BEGIN
 //     INSERT INTO public.users (id, email)
 //     VALUES (NEW.id, NEW.email)
-//     ON CONFLICT (id) DO NOTHING;
+//     ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email;
 //     RETURN NEW;
 //   END;
 //   $function$
