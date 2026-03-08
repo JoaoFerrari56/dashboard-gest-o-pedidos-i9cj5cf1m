@@ -113,6 +113,16 @@ export default function PublicMenu() {
         {
           event: '*',
           schema: 'public',
+          table: 'establishments',
+          filter: `id=eq.${establishmentId}`,
+        },
+        fetchData,
+      )
+      .on(
+        'postgres',
+        {
+          event: '*',
+          schema: 'public',
           table: 'menu_items',
           filter: `establishment_id=eq.${establishmentId}`,
         },

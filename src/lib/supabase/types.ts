@@ -56,6 +56,104 @@ export type Database = {
           },
         ]
       }
+      menu_categories: {
+        Row: {
+          created_at: string
+          establishment_id: string
+          id: string
+          name: string
+          sort_order: number | null
+        }
+        Insert: {
+          created_at?: string
+          establishment_id: string
+          id?: string
+          name: string
+          sort_order?: number | null
+        }
+        Update: {
+          created_at?: string
+          establishment_id?: string
+          id?: string
+          name?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'menu_categories_establishment_id_fkey'
+            columns: ['establishment_id']
+            isOneToOne: false
+            referencedRelation: 'establishments'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      menu_items: {
+        Row: {
+          category_id: string
+          complement_groups: Json | null
+          created_at: string
+          description: string | null
+          establishment_id: string
+          id: string
+          image_url: string | null
+          name: string
+          price: string | null
+          serves: string | null
+          size: string | null
+          sort_order: number | null
+          status: string
+          variations: Json | null
+        }
+        Insert: {
+          category_id: string
+          complement_groups?: Json | null
+          created_at?: string
+          description?: string | null
+          establishment_id: string
+          id?: string
+          image_url?: string | null
+          name: string
+          price?: string | null
+          serves?: string | null
+          size?: string | null
+          sort_order?: number | null
+          status?: string
+          variations?: Json | null
+        }
+        Update: {
+          category_id?: string
+          complement_groups?: Json | null
+          created_at?: string
+          description?: string | null
+          establishment_id?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: string | null
+          serves?: string | null
+          size?: string | null
+          sort_order?: number | null
+          status?: string
+          variations?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'menu_items_category_id_fkey'
+            columns: ['category_id']
+            isOneToOne: false
+            referencedRelation: 'menu_categories'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'menu_items_establishment_id_fkey'
+            columns: ['establishment_id']
+            isOneToOne: false
+            referencedRelation: 'establishments'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -232,6 +330,27 @@ export const Constants = {
 //   created_at: timestamp with time zone (not null, default: now())
 //   logo_url: text (nullable)
 //   schedule: jsonb (not null, default: '{}'::jsonb)
+// Table: menu_categories
+//   id: uuid (not null, default: gen_random_uuid())
+//   establishment_id: uuid (not null)
+//   name: text (not null)
+//   sort_order: integer (nullable, default: 0)
+//   created_at: timestamp with time zone (not null, default: now())
+// Table: menu_items
+//   id: uuid (not null, default: gen_random_uuid())
+//   establishment_id: uuid (not null)
+//   category_id: uuid (not null)
+//   name: text (not null)
+//   description: text (nullable)
+//   price: text (nullable)
+//   size: text (nullable)
+//   serves: text (nullable)
+//   status: text (not null, default: 'Ativo'::text)
+//   image_url: text (nullable)
+//   variations: jsonb (nullable, default: '[]'::jsonb)
+//   complement_groups: jsonb (nullable, default: '[]'::jsonb)
+//   sort_order: integer (nullable, default: 0)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: users
 //   id: uuid (not null)
 //   email: text (not null)
@@ -242,6 +361,13 @@ export const Constants = {
 //   PRIMARY KEY establishments_pkey: PRIMARY KEY (id)
 //   FOREIGN KEY establishments_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 //   UNIQUE establishments_user_id_key: UNIQUE (user_id)
+// Table: menu_categories
+//   FOREIGN KEY menu_categories_establishment_id_fkey: FOREIGN KEY (establishment_id) REFERENCES establishments(id) ON DELETE CASCADE
+//   PRIMARY KEY menu_categories_pkey: PRIMARY KEY (id)
+// Table: menu_items
+//   FOREIGN KEY menu_items_category_id_fkey: FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE CASCADE
+//   FOREIGN KEY menu_items_establishment_id_fkey: FOREIGN KEY (establishment_id) REFERENCES establishments(id) ON DELETE CASCADE
+//   PRIMARY KEY menu_items_pkey: PRIMARY KEY (id)
 // Table: users
 //   FOREIGN KEY users_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 //   PRIMARY KEY users_pkey: PRIMARY KEY (id)
@@ -254,6 +380,24 @@ export const Constants = {
 //     USING: (auth.uid() = user_id)
 //   Policy "Users can view own establishment" (SELECT, PERMISSIVE) roles={public}
 //     USING: (auth.uid() = user_id)
+// Table: menu_categories
+//   Policy "Public can view menu_categories" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
+//   Policy "Users can delete own menu_categories" (DELETE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can insert own menu_categories" (INSERT, PERMISSIVE) roles={public}
+//     WITH CHECK: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can update own menu_categories" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+// Table: menu_items
+//   Policy "Public can view menu_items" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
+//   Policy "Users can delete own menu_items" (DELETE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can insert own menu_items" (INSERT, PERMISSIVE) roles={public}
+//     WITH CHECK: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can update own menu_items" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
 // Table: users
 //   Policy "Users can insert own record" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: (auth.uid() = id)
