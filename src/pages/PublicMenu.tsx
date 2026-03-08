@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ShoppingBag, Store } from 'lucide-react'
+import {
+  ShoppingBag,
+  Store,
+  Bike,
+  MessageSquare,
+  Plus,
+  Minus,
+  ArrowLeft,
+  Trash2,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -10,6 +19,17 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import type {
@@ -21,6 +41,7 @@ import type {
 import { parsePrice } from '@/utils/cardapio'
 import { ProductCard } from '@/components/public-menu/ProductCard'
 import { ProductDetailsModal } from '@/components/public-menu/ProductDetailsModal'
+import { cn } from '@/lib/utils'
 
 export interface CartItem {
   id: string
@@ -48,8 +69,23 @@ export default function PublicMenu() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
+  // Checkout State
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout'>('cart')
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery')
+  const [address, setAddress] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card' | 'cash'>(
+    'pix',
+  )
+  const [observations, setObservations] = useState('')
+
   const cartTotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+  const isCheckoutValid =
+    customerName.trim().length > 2 &&
+    customerPhone.trim().length >= 10 &&
+    (orderType === 'pickup' || address.trim().length > 5)
 
   useEffect(() => {
     if (!establishmentId) {
@@ -154,6 +190,95 @@ export default function PublicMenu() {
     })
   }
 
+  const updateCartItemQuantity = (id: string, delta: number) => {
+    setCartItems(
+      (prev) =>
+        prev
+          .map((item) => {
+            if (item.id === id) {
+              const newQuantity = item.quantity + delta
+              if (newQuantity <= 0) return null
+              const unitPrice = item.totalPrice / item.quantity
+              return {
+                ...item,
+                quantity: newQuantity,
+                totalPrice: unitPrice * newQuantity,
+              }
+            }
+            return item
+          })
+          .filter(Boolean) as CartItem[],
+    )
+  }
+
+  const handleIncrement = (product: Product) => {
+    const hasOptions =
+      (product.variations && product.variations.length > 0) ||
+      (product.complementGroups && product.complementGroups.length > 0)
+    if (hasOptions) {
+      setSelectedProduct(product)
+    } else {
+      const existing = cartItems.find((item) => item.product.id === product.id)
+      if (existing) {
+        updateCartItemQuantity(existing.id, 1)
+        toast({
+          title: 'Quantidade atualizada',
+          description: `Mais 1x ${product.name} adicionado.`,
+        })
+      } else {
+        setCartItems([
+          ...cartItems,
+          {
+            id: Date.now().toString(),
+            product,
+            complements: [],
+            quantity: 1,
+            totalPrice: parsePrice(product.price),
+          },
+        ])
+        toast({
+          title: 'Adicionado à sacola',
+          description: `1x ${product.name} adicionado.`,
+        })
+      }
+    }
+  }
+
+  const handleDecrement = (product: Product) => {
+    const itemsOfProduct = cartItems.filter(
+      (item) => item.product.id === product.id,
+    )
+    if (itemsOfProduct.length === 0) return
+    updateCartItemQuantity(itemsOfProduct[itemsOfProduct.length - 1].id, -1)
+  }
+
+  const handleFinalizeOrder = () => {
+    const itemsText = cartItems
+      .map((item) => {
+        let text = `${item.quantity}x ${item.product.name} - ${formatPrice(item.totalPrice)}`
+        if (item.variation) text += `\n  Variação: ${item.variation.name}`
+        if (item.complements.length > 0) {
+          item.complements.forEach((c) => {
+            text += `\n  + ${c.item.name}`
+          })
+        }
+        return text
+      })
+      .join('\n\n')
+
+    const text = `*NOVO PEDIDO* 🍔\n\n*Cliente:* ${customerName}\n*Telefone:* ${customerPhone}\n\n*Tipo de Pedido:* ${orderType === 'delivery' ? 'Entrega 🛵' : 'Retirada 🏪'}\n${orderType === 'delivery' ? `*Endereço:* ${address}\n` : ''}*Pagamento:* ${paymentMethod === 'pix' ? 'PIX 💠' : paymentMethod === 'card' ? 'Cartão 💳' : 'Dinheiro 💵'}\n${observations ? `*Observações:* ${observations}\n` : ''}\n*ITENS DO PEDIDO:*\n${itemsText}\n\n*TOTAL:* ${formatPrice(cartTotal)}\n\n----------------------------\nPedido gerado via Cardápio Digital`
+
+    const encoded = encodeURIComponent(text)
+    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank')
+
+    toast({
+      title: 'Pedido enviado!',
+      description: 'Você será redirecionado para o WhatsApp.',
+    })
+    setCartItems([])
+    setIsCartOpen(false)
+  }
+
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -179,7 +304,7 @@ export default function PublicMenu() {
           {establishment.name}
         </h1>
         <p className="text-red-100 text-[15px] md:text-base mt-2.5 relative z-10 font-medium">
-          Clique nos itens para simular o pedido
+          Faça seu pedido abaixo
         </p>
       </div>
 
@@ -199,6 +324,11 @@ export default function PublicMenu() {
                   <ProductCard
                     key={p.id}
                     product={p}
+                    cartQuantity={cartItems
+                      .filter((item) => item.product.id === p.id)
+                      .reduce((sum, item) => sum + item.quantity, 0)}
+                    onIncrement={() => handleIncrement(p)}
+                    onDecrement={() => handleDecrement(p)}
                     onClick={() => setSelectedProduct(p)}
                   />
                 ))}
@@ -244,105 +374,270 @@ export default function PublicMenu() {
         />
       )}
 
-      <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+      <Sheet
+        open={isCartOpen}
+        onOpenChange={(open) => {
+          setIsCartOpen(open)
+          if (!open) setTimeout(() => setCheckoutStep('cart'), 300)
+        }}
+      >
         <SheetContent
           side="right"
-          className="w-full sm:max-w-md p-0 flex flex-col bg-slate-50 border-l border-slate-200"
+          className="w-full sm:max-w-md p-0 flex flex-col bg-slate-50 border-l border-slate-200 focus-visible:outline-none"
         >
           <div className="p-5 border-b border-slate-200 bg-white shadow-sm z-10 flex items-center justify-between">
-            <SheetHeader className="text-left space-y-0">
+            <SheetHeader className="text-left space-y-0 w-full">
               <SheetTitle className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <ShoppingBag className="h-5 w-5 text-brand-red" />
-                Sua Sacola
+                {checkoutStep === 'checkout' ? (
+                  <>
+                    <button
+                      onClick={() => setCheckoutStep('cart')}
+                      className="mr-1 hover:bg-slate-100 p-1.5 rounded-md transition-colors"
+                    >
+                      <ArrowLeft className="h-5 w-5 text-slate-600" />
+                    </button>
+                    Finalizar Pedido
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="h-5 w-5 text-brand-red" />
+                    Sua Sacola
+                  </>
+                )}
               </SheetTitle>
             </SheetHeader>
           </div>
-          <ScrollArea className="flex-1 p-5 relative">
-            {cartItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center py-20 opacity-60">
-                <ShoppingBag className="h-16 w-16 text-slate-300 mb-4" />
-                <p className="text-slate-600 font-semibold text-lg">
-                  Sua sacola está vazia
-                </p>
-                <Button
-                  className="mt-6 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold"
-                  onClick={() => setIsCartOpen(false)}
-                >
-                  Continuar explorando
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4 pb-4">
-                {cartItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4"
-                  >
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-bold text-slate-800 flex items-center gap-2">
-                          <span className="text-brand-red bg-red-50 px-1.5 py-0.5 rounded-md text-sm">
-                            {item.quantity}x
-                          </span>
-                          {item.product.name}
-                        </h4>
-                        <span className="font-bold text-slate-800 shrink-0 ml-2">
-                          {formatPrice(item.totalPrice)}
-                        </span>
-                      </div>
-                      <div className="text-sm text-slate-500 mt-2 space-y-1">
-                        {item.variation && (
-                          <p>
-                            Variação:{' '}
-                            <span className="font-medium text-slate-700">
-                              {item.variation.name}
+
+          <ScrollArea className="flex-1 relative">
+            <div className="p-5 space-y-6">
+              {checkoutStep === 'cart' ? (
+                cartItems.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center py-20 opacity-60">
+                    <ShoppingBag className="h-16 w-16 text-slate-300 mb-4" />
+                    <p className="text-slate-600 font-semibold text-lg">
+                      Sua sacola está vazia
+                    </p>
+                    <Button
+                      className="mt-6 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold"
+                      onClick={() => setIsCartOpen(false)}
+                    >
+                      Continuar explorando
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {cartItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4"
+                      >
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-bold text-slate-800 leading-tight pr-4">
+                              {item.product.name}
+                            </h4>
+                            <span className="font-bold text-slate-800 shrink-0">
+                              {formatPrice(item.totalPrice)}
                             </span>
-                          </p>
-                        )}
-                        {item.complements.map((c, idx) => (
-                          <p key={idx} className="flex justify-between">
-                            <span>+ {c.item.name}</span>
-                            {parsePrice(c.item.price) > 0 && (
-                              <span className="text-slate-400">
-                                {formatPrice(parsePrice(c.item.price))}
-                              </span>
+                          </div>
+                          <div className="text-sm text-slate-500 mt-2 space-y-1">
+                            {item.variation && (
+                              <p>
+                                Variação:{' '}
+                                <span className="font-medium text-slate-700">
+                                  {item.variation.name}
+                                </span>
+                              </p>
                             )}
-                          </p>
-                        ))}
+                            {item.complements.map((c, idx) => (
+                              <p key={idx} className="flex justify-between">
+                                <span>+ {c.item.name}</span>
+                                {parsePrice(c.item.price) > 0 && (
+                                  <span className="text-slate-400">
+                                    {formatPrice(parsePrice(c.item.price))}
+                                  </span>
+                                )}
+                              </p>
+                            ))}
+                          </div>
+                          <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-100">
+                            <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-1 border border-slate-100">
+                              <button
+                                onClick={() =>
+                                  updateCartItemQuantity(item.id, -1)
+                                }
+                                className="h-7 w-7 flex items-center justify-center rounded-md bg-white text-slate-600 shadow-sm hover:bg-slate-100"
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="font-bold text-slate-800 text-sm w-4 text-center">
+                                {item.quantity}
+                              </span>
+                              <button
+                                onClick={() =>
+                                  updateCartItemQuantity(item.id, 1)
+                                }
+                                className="h-7 w-7 flex items-center justify-center rounded-md bg-white text-brand-red shadow-sm hover:bg-red-50"
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
+                            <button
+                              onClick={() =>
+                                setCartItems((prev) =>
+                                  prev.filter((i) => i.id !== item.id),
+                                )
+                              }
+                              className="text-slate-400 hover:text-red-500 transition-colors p-2 rounded-md hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="space-y-8 pb-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-slate-800 text-lg">
+                      Seus Dados
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <Label>Nome Completo</Label>
+                        <Input
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          placeholder="Ex: João da Silva"
+                          className="bg-white mt-1.5"
+                        />
+                      </div>
+                      <div>
+                        <Label>Telefone (WhatsApp)</Label>
+                        <Input
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="(00) 00000-0000"
+                          className="bg-white mt-1.5"
+                        />
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-slate-800 text-lg">
+                      Entrega ou Retirada?
+                    </h3>
+                    <RadioGroup
+                      value={orderType}
+                      onValueChange={(v: any) => setOrderType(v)}
+                      className="flex gap-4"
+                    >
+                      <label
+                        className={cn(
+                          'flex-1 border rounded-xl p-3 flex flex-col items-center gap-2 cursor-pointer transition-colors bg-white',
+                          orderType === 'delivery'
+                            ? 'border-brand-red bg-red-50 text-brand-red'
+                            : 'border-slate-200 hover:border-brand-red/50',
+                        )}
+                      >
+                        <RadioGroupItem value="delivery" className="sr-only" />
+                        <Bike className="h-6 w-6" />
+                        <span className="font-medium text-sm">Entrega</span>
+                      </label>
+                      <label
+                        className={cn(
+                          'flex-1 border rounded-xl p-3 flex flex-col items-center gap-2 cursor-pointer transition-colors bg-white',
+                          orderType === 'pickup'
+                            ? 'border-brand-red bg-red-50 text-brand-red'
+                            : 'border-slate-200 hover:border-brand-red/50',
+                        )}
+                      >
+                        <RadioGroupItem value="pickup" className="sr-only" />
+                        <Store className="h-6 w-6" />
+                        <span className="font-medium text-sm">Retirada</span>
+                      </label>
+                    </RadioGroup>
+                  </div>
+
+                  {orderType === 'delivery' && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <h3 className="font-bold text-slate-800 text-lg">
+                        Endereço de Entrega
+                      </h3>
+                      <Textarea
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        placeholder="Rua, Número, Bairro, Complemento..."
+                        className="resize-none bg-white"
+                        rows={3}
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-slate-800 text-lg">
+                      Forma de Pagamento
+                    </h3>
+                    <Select
+                      value={paymentMethod}
+                      onValueChange={(v: any) => setPaymentMethod(v)}
+                    >
+                      <SelectTrigger className="w-full h-12 bg-white">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pix">PIX</SelectItem>
+                        <SelectItem value="card">
+                          Cartão (Crédito/Débito)
+                        </SelectItem>
+                        <SelectItem value="cash">Dinheiro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-bold text-slate-800 text-lg">
+                      Observações do Pedido
+                    </h3>
+                    <Textarea
+                      value={observations}
+                      onChange={(e) => setObservations(e.target.value)}
+                      placeholder="Ex: Tirar cebola, troco para R$ 50..."
+                      className="resize-none bg-white"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </ScrollArea>
+
           {cartItems.length > 0 && (
             <div className="p-5 bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 shrink-0">
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between text-slate-500 font-medium">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(cartTotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500 font-medium">
-                  <span>Taxa de Entrega</span>
-                  <span className="text-brand-green font-bold">A calcular</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between text-xl font-black text-slate-800">
-                  <span>Total</span>
-                  <span>{formatPrice(cartTotal)}</span>
-                </div>
+              <div className="flex justify-between text-xl font-black text-slate-800 mb-5">
+                <span>Total</span>
+                <span>{formatPrice(cartTotal)}</span>
               </div>
-              <Button
-                className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-14 text-lg rounded-xl shadow-sm active:scale-95"
-                onClick={() => {
-                  toast({ title: 'Pedido Simulado!' })
-                  setIsCartOpen(false)
-                  setCartItems([])
-                }}
-              >
-                Avançar para Pagamento
-              </Button>
+              {checkoutStep === 'cart' ? (
+                <Button
+                  className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-14 text-lg rounded-xl shadow-sm active:scale-95 transition-all"
+                  onClick={() => setCheckoutStep('checkout')}
+                >
+                  Avançar para Pagamento
+                </Button>
+              ) : (
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-14 text-lg rounded-xl shadow-sm active:scale-95 transition-all"
+                  onClick={handleFinalizeOrder}
+                  disabled={!isCheckoutValid}
+                >
+                  <MessageSquare className="mr-2 h-5 w-5" />
+                  Enviar Pedido
+                </Button>
+              )}
             </div>
           )}
         </SheetContent>

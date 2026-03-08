@@ -374,6 +374,8 @@ export const Constants = {
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: establishments
+//   Policy "Public can view establishments" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
 //   Policy "Users can insert own establishment" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: (auth.uid() = user_id)
 //   Policy "Users can update own establishment" (UPDATE, PERMISSIVE) roles={public}
