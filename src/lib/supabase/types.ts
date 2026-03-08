@@ -46,6 +46,32 @@ export type Database = {
           schedule?: Json
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: 'establishments_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: true
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+        }
         Relationships: []
       }
     }
@@ -206,12 +232,19 @@ export const Constants = {
 //   created_at: timestamp with time zone (not null, default: now())
 //   logo_url: text (nullable)
 //   schedule: jsonb (not null, default: '{}'::jsonb)
+// Table: users
+//   id: uuid (not null)
+//   email: text (not null)
+//   created_at: timestamp with time zone (not null, default: now())
 
 // --- CONSTRAINTS ---
 // Table: establishments
 //   PRIMARY KEY establishments_pkey: PRIMARY KEY (id)
-//   FOREIGN KEY establishments_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+//   FOREIGN KEY establishments_user_id_fkey: FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 //   UNIQUE establishments_user_id_key: UNIQUE (user_id)
+// Table: users
+//   FOREIGN KEY users_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+//   PRIMARY KEY users_pkey: PRIMARY KEY (id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
 // Table: establishments
@@ -221,6 +254,29 @@ export const Constants = {
 //     USING: (auth.uid() = user_id)
 //   Policy "Users can view own establishment" (SELECT, PERMISSIVE) roles={public}
 //     USING: (auth.uid() = user_id)
+// Table: users
+//   Policy "Users can insert own record" (INSERT, PERMISSIVE) roles={public}
+//     WITH CHECK: (auth.uid() = id)
+//   Policy "Users can update own record" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = id)
+//   Policy "Users can view own record" (SELECT, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = id)
+
+// --- DATABASE FUNCTIONS ---
+// FUNCTION handle_new_user()
+//   CREATE OR REPLACE FUNCTION public.handle_new_user()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     INSERT INTO public.users (id, email)
+//     VALUES (NEW.id, NEW.email)
+//     ON CONFLICT (id) DO NOTHING;
+//     RETURN NEW;
+//   END;
+//   $function$
+//
 
 // --- INDEXES ---
 // Table: establishments

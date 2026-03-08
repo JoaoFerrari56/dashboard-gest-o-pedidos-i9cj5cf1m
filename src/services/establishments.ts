@@ -67,10 +67,35 @@ export async function createEstablishment(payload: {
   const email = session.user.email || ''
 
   try {
-    // Ensure the user record exists in the public schema
-    await supabase
-      .from('users' as any)
-      .upsert({ id: user_id, email }, { onConflict: 'id' })
+    // PROACTIVE USER SYNC: Pre-save check to ensure user exists in public.users
+    // This prevents 409 Conflict errors related to establishments_user_id_fkey
+    const { data: existingUser, error: checkUserError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user_id)
+      .maybeSingle()
+
+    if (checkUserError) {
+      console.warn('Warning checking user existence:', checkUserError)
+    }
+
+    // Resolution: missing user record
+    if (!existingUser) {
+      const { error: insertUserError } = await supabase
+        .from('users')
+        .insert({ id: user_id, email })
+
+      if (insertUserError) {
+        console.error(
+          'Error inserting missing user, falling back to upsert:',
+          insertUserError,
+        )
+        // Fallback to upsert just in case it was created concurrently
+        await supabase
+          .from('users')
+          .upsert({ id: user_id, email }, { onConflict: 'id' })
+      }
+    }
 
     // Check if establishment already exists for this user to avoid upsert conflicts
     const { data: existing, error: existingError } = await supabase
@@ -111,6 +136,7 @@ export async function createEstablishment(payload: {
       return { data, error }
     }
   } catch (err: any) {
+    console.error('Establishment creation failed:', err)
     return { data: null, error: err }
   }
 }
