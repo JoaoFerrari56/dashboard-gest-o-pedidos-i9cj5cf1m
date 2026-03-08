@@ -9,6 +9,7 @@ import {
   Minus,
   ArrowLeft,
   Trash2,
+  Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -18,7 +19,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { Separator } from '@/components/ui/separator'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -69,12 +69,20 @@ export default function PublicMenu() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
+  const [searchQuery, setSearchQuery] = useState('')
+
   // Checkout State
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'checkout'>('cart')
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [orderType, setOrderType] = useState<'delivery' | 'pickup'>('delivery')
-  const [address, setAddress] = useState('')
+
+  // Structured Address
+  const [street, setStreet] = useState('')
+  const [number, setNumber] = useState('')
+  const [neighborhood, setNeighborhood] = useState('')
+  const [city, setCity] = useState('')
+
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card' | 'cash'>(
     'pix',
   )
@@ -82,10 +90,16 @@ export default function PublicMenu() {
 
   const cartTotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  const isAddressValid =
+    street.trim().length > 0 &&
+    number.trim().length > 0 &&
+    neighborhood.trim().length > 0 &&
+    city.trim().length > 0
   const isCheckoutValid =
     customerName.trim().length > 2 &&
     customerPhone.trim().length >= 10 &&
-    (orderType === 'pickup' || address.trim().length > 5)
+    (orderType === 'pickup' || isAddressValid)
 
   useEffect(() => {
     if (!establishmentId) {
@@ -266,7 +280,8 @@ export default function PublicMenu() {
       })
       .join('\n\n')
 
-    const text = `*NOVO PEDIDO* 🍔\n\n*Cliente:* ${customerName}\n*Telefone:* ${customerPhone}\n\n*Tipo de Pedido:* ${orderType === 'delivery' ? 'Entrega 🛵' : 'Retirada 🏪'}\n${orderType === 'delivery' ? `*Endereço:* ${address}\n` : ''}*Pagamento:* ${paymentMethod === 'pix' ? 'PIX 💠' : paymentMethod === 'card' ? 'Cartão 💳' : 'Dinheiro 💵'}\n${observations ? `*Observações:* ${observations}\n` : ''}\n*ITENS DO PEDIDO:*\n${itemsText}\n\n*TOTAL:* ${formatPrice(cartTotal)}\n\n----------------------------\nPedido gerado via Cardápio Digital`
+    const fullAddress = `${street}, ${number} - ${neighborhood}, ${city}`
+    const text = `*NOVO PEDIDO* 🍔\n\n*Cliente:* ${customerName}\n*Telefone:* ${customerPhone}\n\n*Tipo de Pedido:* ${orderType === 'delivery' ? 'Entrega 🛵' : 'Retirada 🏪'}\n${orderType === 'delivery' ? `*Endereço:* ${fullAddress}\n` : ''}*Pagamento:* ${paymentMethod === 'pix' ? 'PIX 💠' : paymentMethod === 'card' ? 'Cartão 💳' : 'Dinheiro 💵'}\n${observations ? `*Observações:* ${observations}\n` : ''}\n*ITENS DO PEDIDO:*\n${itemsText}\n\n*TOTAL:* ${formatPrice(cartTotal)}\n\n----------------------------\nPedido gerado via Cardápio Digital`
 
     const encoded = encodeURIComponent(text)
     window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank')
@@ -308,12 +323,30 @@ export default function PublicMenu() {
         </p>
       </div>
 
-      <main className="max-w-3xl mx-auto p-5 md:p-8 space-y-10 mt-2">
+      <main className="max-w-3xl mx-auto p-5 md:p-8 space-y-8 mt-2">
+        <div className="relative mb-2">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+          <Input
+            placeholder="Buscar no cardápio..."
+            className="pl-10 bg-white border-slate-200 h-12 shadow-sm rounded-xl text-base"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+
         {categories.map((cat) => {
-          const productsInCategory = products.filter(
-            (p) => p.category_id === cat.id && p.status !== 'Inativo',
-          )
+          const productsInCategory = products.filter((p) => {
+            if (p.category_id !== cat.id || p.status === 'Inativo') return false
+            if (!searchQuery) return true
+            const q = searchQuery.toLowerCase()
+            return (
+              p.name.toLowerCase().includes(q) ||
+              (p.description && p.description.toLowerCase().includes(q))
+            )
+          })
+
           if (productsInCategory.length === 0) return null
+
           return (
             <div key={cat.id} id={`category-${cat.id}`} className="space-y-5">
               <h2 className="font-bold text-slate-800 text-xl border-b border-slate-200/80 pb-3 tracking-tight">
@@ -336,9 +369,19 @@ export default function PublicMenu() {
             </div>
           )
         })}
-        {products.filter((p) => p.status !== 'Inativo').length === 0 && (
+        {products.filter((p) => {
+          if (p.status === 'Inativo') return false
+          if (!searchQuery) return true
+          const q = searchQuery.toLowerCase()
+          return (
+            p.name.toLowerCase().includes(q) ||
+            (p.description && p.description.toLowerCase().includes(q))
+          )
+        }).length === 0 && (
           <div className="text-center py-20 text-slate-500 font-medium">
-            Nenhum produto disponível no momento.
+            {searchQuery
+              ? 'Nenhum item encontrado para sua busca.'
+              : 'Nenhum produto disponível no momento.'}
           </div>
         )}
       </main>
@@ -567,13 +610,46 @@ export default function PublicMenu() {
                       <h3 className="font-bold text-slate-800 text-lg">
                         Endereço de Entrega
                       </h3>
-                      <Textarea
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Rua, Número, Bairro, Complemento..."
-                        className="resize-none bg-white"
-                        rows={3}
-                      />
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Rua</Label>
+                          <Input
+                            value={street}
+                            onChange={(e) => setStreet(e.target.value)}
+                            placeholder="Ex: Rua das Flores"
+                            className="bg-white mt-1.5"
+                          />
+                        </div>
+                        <div className="flex gap-3">
+                          <div className="w-1/3">
+                            <Label>Número</Label>
+                            <Input
+                              value={number}
+                              onChange={(e) => setNumber(e.target.value)}
+                              placeholder="Ex: 123"
+                              className="bg-white mt-1.5"
+                            />
+                          </div>
+                          <div className="w-2/3">
+                            <Label>Bairro</Label>
+                            <Input
+                              value={neighborhood}
+                              onChange={(e) => setNeighborhood(e.target.value)}
+                              placeholder="Ex: Centro"
+                              className="bg-white mt-1.5"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Cidade</Label>
+                          <Input
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            placeholder="Ex: São Paulo"
+                            className="bg-white mt-1.5"
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
 
