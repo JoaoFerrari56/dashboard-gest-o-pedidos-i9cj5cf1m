@@ -67,74 +67,36 @@ export async function createEstablishment(payload: {
   const email = session.user.email || ''
 
   try {
-    // PROACTIVE USER SYNC: Pre-save check to ensure user exists in public.users
-    // This prevents 409 Conflict errors related to establishments_user_id_fkey
-    const { data: existingUser, error: checkUserError } = await supabase
+    // 1. Proactive User Sync using Upsert
+    // Guarantees the user exists in public.users to prevent FK violations (23503).
+    // Upsert avoids race conditions and 409 Conflict errors that occur with check-then-insert.
+    const { error: syncError } = await supabase
       .from('users')
-      .select('id')
-      .eq('id', user_id)
-      .maybeSingle()
+      .upsert({ id: user_id, email }, { onConflict: 'id' })
 
-    if (checkUserError) {
-      console.warn('Warning checking user existence:', checkUserError)
+    if (syncError) {
+      console.warn('Sync user warning:', syncError)
     }
 
-    // Resolution: missing user record
-    if (!existingUser) {
-      const { error: insertUserError } = await supabase
-        .from('users')
-        .insert({ id: user_id, email })
-
-      if (insertUserError) {
-        console.error(
-          'Error inserting missing user, falling back to upsert:',
-          insertUserError,
-        )
-        // Fallback to upsert just in case it was created concurrently
-        await supabase
-          .from('users')
-          .upsert({ id: user_id, email }, { onConflict: 'id' })
-      }
-    }
-
-    // Check if establishment already exists for this user to avoid upsert conflicts
-    const { data: existing, error: existingError } = await supabase
+    // 2. Atomic Registration of Establishment
+    // Using upsert on the unique user_id ensures we either create or update cleanly,
+    // solving database conflicts while complying perfectly with the RLS policies.
+    const { data, error } = await supabase
       .from('establishments')
-      .select('id')
-      .eq('user_id', user_id)
-      .maybeSingle()
-
-    if (existingError) {
-      return { data: null, error: existingError }
-    }
-
-    if (existing) {
-      // Update existing record
-      const { data, error } = await supabase
-        .from('establishments')
-        .update({
-          ...payload,
-          operating_hours: '', // Legacy field compatibility
-        })
-        .eq('id', existing.id)
-        .select()
-        .single()
-
-      return { data, error }
-    } else {
-      // Insert new record, explicitly passing the authenticated user's ID
-      const { data, error } = await supabase
-        .from('establishments')
-        .insert({
+      .upsert(
+        {
           ...payload,
           user_id,
-          operating_hours: '',
-        })
-        .select()
-        .single()
+          operating_hours: '', // Legacy field compatibility
+        },
+        { onConflict: 'user_id' },
+      )
+      .select()
+      .single()
 
-      return { data, error }
-    }
+    if (error) throw error
+
+    return { data, error: null }
   } catch (err: any) {
     console.error('Establishment creation failed:', err)
     return { data: null, error: err }
