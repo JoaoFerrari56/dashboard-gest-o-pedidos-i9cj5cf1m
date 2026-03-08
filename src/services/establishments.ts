@@ -46,13 +46,17 @@ export async function createEstablishment(payload: {
   } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
 
+  // Using upsert ensures that if an incomplete record was created previously, we update it successfully
   const { data, error } = await supabase
     .from('establishments')
-    .insert({
-      ...payload,
-      user_id: user.id,
-      operating_hours: '',
-    } as any)
+    .upsert(
+      {
+        ...payload,
+        user_id: user.id,
+        operating_hours: '',
+      } as any,
+      { onConflict: 'user_id' },
+    )
     .select()
     .single()
 

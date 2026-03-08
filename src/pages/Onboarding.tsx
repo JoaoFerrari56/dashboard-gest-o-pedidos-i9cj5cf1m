@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createEstablishment, uploadLogo } from '@/services/establishments'
+import {
+  createEstablishment,
+  uploadLogo,
+  getEstablishment,
+} from '@/services/establishments'
 import { toast } from '@/hooks/use-toast'
 import { Loader2, Store, Clock, Utensils } from 'lucide-react'
 import {
@@ -36,7 +40,27 @@ export default function Onboarding() {
   const [schedule, setSchedule] = useState<WeeklySchedule>(DEFAULT_SCHEDULE)
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
+  const [fetching, setFetching] = useState(true)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let mounted = true
+    async function loadExisting() {
+      const { data } = await getEstablishment()
+      if (mounted && data) {
+        if (data.name) setName(data.name)
+        if (data.category) setCategory(data.category)
+        if (data.schedule && Object.keys(data.schedule).length > 0) {
+          setSchedule(data.schedule as WeeklySchedule)
+        }
+      }
+      if (mounted) setFetching(false)
+    }
+    loadExisting()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const validate = () => {
     if (!name || !category) return 'Preencha todos os campos obrigatórios.'
@@ -63,12 +87,17 @@ export default function Onboarding() {
         logo_url = await uploadLogo(logoFile)
       }
 
-      const { error } = await createEstablishment({
+      const payload: any = {
         name,
         category,
         schedule,
-        logo_url,
-      })
+      }
+
+      if (logo_url) {
+        payload.logo_url = logo_url
+      }
+
+      const { error } = await createEstablishment(payload)
 
       if (error) throw error
 
@@ -87,6 +116,14 @@ export default function Onboarding() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (fetching) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-brand-red w-8 h-8" />
+      </div>
+    )
   }
 
   return (

@@ -19,20 +19,31 @@ export function ProtectedRoute({
   useEffect(() => {
     let mounted = true
 
-    if (!loading) {
-      if (user) {
-        getEstablishment().then(({ data }) => {
-          if (mounted) {
-            setHasEstablishment(!!data)
-            setChecking(false)
-          }
-        })
-      } else {
+    async function verifyEstablishment() {
+      if (loading) return
+
+      if (!user) {
+        if (mounted) setChecking(false)
+        return
+      }
+
+      try {
+        const { data } = await getEstablishment()
         if (mounted) {
+          // An establishment is considered valid and fully onboarded only if it has a name and category
+          const isValid = !!data && !!data.name && !!data.category
+          setHasEstablishment(isValid)
+          setChecking(false)
+        }
+      } catch (err) {
+        if (mounted) {
+          setHasEstablishment(false)
           setChecking(false)
         }
       }
     }
+
+    verifyEstablishment()
 
     return () => {
       mounted = false
