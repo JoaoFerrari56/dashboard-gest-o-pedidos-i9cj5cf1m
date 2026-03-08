@@ -13,10 +13,12 @@ export function KanbanBoard({
   orders,
   loading,
   onUpdateStatus,
+  onDeleteOrder,
 }: {
   orders: Order[]
   loading: boolean
   onUpdateStatus: (id: string, status: string) => void
+  onDeleteOrder: (id: string) => void
 }) {
   if (loading && orders.length === 0) {
     return (
@@ -36,7 +38,7 @@ export function KanbanBoard({
   }
 
   return (
-    <div className="flex h-full gap-4 overflow-x-auto pb-4">
+    <div className="flex h-full gap-6 overflow-x-auto pb-4 custom-scrollbar">
       {COLUMNS.map((col) => (
         <KanbanColumn
           key={col.id}
@@ -44,6 +46,7 @@ export function KanbanBoard({
           label={col.label}
           orders={orders.filter((o) => o.status === col.id)}
           onUpdateStatus={onUpdateStatus}
+          onDeleteOrder={onDeleteOrder}
         />
       ))}
     </div>

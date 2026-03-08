@@ -19,10 +19,14 @@ export function useOrders() {
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setOrders((prev) => [payload.new as Order, ...prev])
-            toast.success(
-              `Novo pedido de ${(payload.new as Order).customer_name}!`,
-            )
+            setOrders((prev) => {
+              // Avoid duplicates if we already optimistic-inserted
+              if (prev.some((o) => o.id === payload.new.id)) return prev
+              toast.success(
+                `Novo pedido de ${(payload.new as Order).customer_name}!`,
+              )
+              return [payload.new as Order, ...prev]
+            })
           } else if (payload.eventType === 'UPDATE') {
             setOrders((prev) =>
               prev.map((o) =>
@@ -78,6 +82,22 @@ export function useOrders() {
     }
   }
 
+  async function deleteOrder(id: string) {
+    const previousOrders = [...orders]
+    setOrders((prev) => prev.filter((o) => o.id !== id))
+
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', id)
+
+      if (error) throw error
+      toast.success('Pedido excluído com sucesso')
+    } catch (err) {
+      console.error(err)
+      toast.error('Erro ao excluir pedido')
+      setOrders(previousOrders)
+    }
+  }
+
   async function createMockOrder() {
     try {
       const {
@@ -125,5 +145,5 @@ export function useOrders() {
     }
   }
 
-  return { orders, loading, updateStatus, createMockOrder }
+  return { orders, loading, updateStatus, deleteOrder, createMockOrder }
 }

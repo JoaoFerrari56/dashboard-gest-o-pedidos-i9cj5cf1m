@@ -3,10 +3,21 @@ import { Order } from '@/hooks/use-orders'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Clock, MapPin, ChevronRight } from 'lucide-react'
+import { Clock, MapPin, ChevronRight, Trash2 } from 'lucide-react'
 import { OrderDetailsDialog } from './OrderDetailsDialog'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 const NEXT_STATUS: Record<string, string | null> = {
   ANÁLISE: 'EM PREPARO',
@@ -24,11 +35,17 @@ const STATUS_LABELS: Record<string, string> = {
 export function OrderCard({
   order,
   onUpdateStatus,
+  onDeleteOrder,
 }: {
   order: Order
   onUpdateStatus: (id: string, status: string) => void
+  onDeleteOrder: (id: string) => void
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [isDragging, setIsDragging] = useState(false)
+
   const nextStatus = NEXT_STATUS[order.status]
 
   const address = order.delivery_address as any
@@ -43,10 +60,39 @@ export function OrderCard({
     }
   }
 
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeleteConfirmText('')
+    setDeleteOpen(true)
+  }
+
+  const confirmDelete = () => {
+    if (deleteConfirmText === 'excluir') {
+      onDeleteOrder(order.id)
+      setDeleteOpen(false)
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('orderId', order.id)
+    // Small timeout ensures the dragged visual clone is created before applying opacity
+    setTimeout(() => setIsDragging(true), 0)
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+  }
+
   return (
     <>
       <Card
-        className="cursor-pointer hover:shadow-md transition-shadow border-slate-200 bg-white"
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className={cn(
+          'cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-slate-200 bg-white relative group',
+          isDragging && 'opacity-50 scale-95',
+        )}
         onClick={() => setDetailsOpen(true)}
       >
         <CardContent className="p-4">
@@ -59,8 +105,16 @@ export function OrderCard({
                 {order.customer_name}
               </h4>
             </div>
-            <div className="text-right">
-              <div className="font-bold text-brand-red text-sm">
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-slate-300 hover:text-brand-red hover:bg-red-50 -mr-2 -mt-2 transition-colors"
+                onClick={handleDeleteClick}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <div className="font-bold text-brand-red text-sm mt-1">
                 {order.total_price}
               </div>
             </div>
@@ -92,7 +146,7 @@ export function OrderCard({
             {nextStatus && (
               <Button
                 size="sm"
-                className="h-7 px-2 text-xs bg-brand-red hover:bg-red-700 text-white"
+                className="h-7 px-2 text-xs bg-brand-red hover:bg-red-700 text-white transition-transform hover:scale-105 active:scale-95"
                 onClick={handleNextStatus}
               >
                 {STATUS_LABELS[nextStatus]}
@@ -109,6 +163,49 @@ export function OrderCard({
         onOpenChange={setDetailsOpen}
         onUpdateStatus={onUpdateStatus}
       />
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent
+          className="sm:max-w-md"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-brand-red flex items-center gap-2">
+              <Trash2 className="h-5 w-5" /> Excluir Pedido
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              Você está prestes a excluir o pedido de{' '}
+              <strong>{order.customer_name}</strong>. Esta ação não pode ser
+              desfeita. Para confirmar, digite a palavra{' '}
+              <strong>excluir</strong> abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <Label htmlFor="confirmDelete" className="text-slate-700">
+              Confirmação de segurança
+            </Label>
+            <Input
+              id="confirmDelete"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Digite excluir"
+              autoComplete="off"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteConfirmText !== 'excluir'}
+              onClick={confirmDelete}
+            >
+              Excluir Pedido
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
