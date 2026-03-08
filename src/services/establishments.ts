@@ -64,8 +64,14 @@ export async function createEstablishment(payload: {
   }
 
   const user_id = session.user.id
+  const email = session.user.email || ''
 
   try {
+    // Ensure the user record exists in the public schema
+    await supabase
+      .from('users' as any)
+      .upsert({ id: user_id, email }, { onConflict: 'id' })
+
     // Check if establishment already exists for this user to avoid upsert conflicts
     const { data: existing, error: existingError } = await supabase
       .from('establishments')
