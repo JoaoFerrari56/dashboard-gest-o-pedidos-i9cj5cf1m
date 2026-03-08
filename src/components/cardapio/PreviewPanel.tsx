@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { EyeOff, ShoppingBag, Layers } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
@@ -12,6 +11,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
 import type {
   Category,
   Product,
@@ -33,15 +33,18 @@ export function PreviewPanel({
   menuStatus,
   categories,
   products,
+  establishmentId,
 }: {
   menuName: string
   menuStatus: string
   categories: Category[]
   products: Product[]
+  establishmentId?: string | null
 }) {
   const { toast } = useToast()
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleAddToCart = (product: Product) => {
     if (product.status !== 'Ativo') {
@@ -100,6 +103,60 @@ export function PreviewPanel({
     0,
   )
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  const handleCheckout = async () => {
+    if (!establishmentId) {
+      toast({
+        title: 'Erro',
+        description: 'Estabelecimento não configurado.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const orderItems = cartItems.map((item) => ({
+        quantity: item.quantity,
+        name: item.product.name,
+        variation: item.variation?.name,
+        complements: item.complements.map((c) => c.item.name),
+      }))
+
+      const { error } = await supabase.from('orders' as any).insert({
+        establishment_id: establishmentId,
+        customer_name: 'Cliente Teste (Preview)',
+        customer_whatsapp: '(11) 99999-9999',
+        delivery_address: {
+          street: 'Rua Fictícia',
+          number: '123',
+          neighborhood: 'Bairro Teste',
+          city: 'Cidade Teste',
+        },
+        payment_method: 'PIX',
+        order_items: orderItems,
+        total_price: cartTotal.toFixed(2),
+        status: 'ANÁLISE',
+      })
+
+      if (error) throw error
+
+      toast({
+        title: 'Pedido Teste Enviado!',
+        description: 'Verifique a aba de Pedidos para gerenciar.',
+      })
+      setCartItems([])
+      setIsCartOpen(false)
+    } catch (e: any) {
+      toast({
+        title: 'Erro ao enviar pedido',
+        description: e.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="bg-slate-100 rounded-[2.5rem] p-3 shadow-xl border-[10px] border-slate-800 relative h-full w-full max-w-[380px] mx-auto flex flex-col overflow-hidden">
@@ -307,13 +364,10 @@ export function PreviewPanel({
             </div>
             <Button
               className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-12 text-lg rounded-xl shadow-sm"
-              disabled={cartItems.length === 0}
-              onClick={() => {
-                setCartItems([])
-                setIsCartOpen(false)
-              }}
+              disabled={cartItems.length === 0 || isSubmitting}
+              onClick={handleCheckout}
             >
-              Finalizar Pedido
+              {isSubmitting ? 'Enviando...' : 'Finalizar Pedido'}
             </Button>
           </div>
         </SheetContent>

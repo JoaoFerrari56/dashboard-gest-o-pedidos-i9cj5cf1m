@@ -594,6 +594,7 @@ export default function Cardapio() {
               menuStatus={menuStatus}
               categories={categories}
               products={products}
+              establishmentId={establishmentId}
             />
           </div>
         </div>
