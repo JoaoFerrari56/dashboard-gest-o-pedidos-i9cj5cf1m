@@ -154,6 +154,53 @@ export type Database = {
           },
         ]
       }
+      orders: {
+        Row: {
+          created_at: string
+          customer_name: string
+          customer_whatsapp: string
+          delivery_address: Json
+          establishment_id: string
+          id: string
+          order_items: Json
+          payment_method: string
+          status: string
+          total_price: string
+        }
+        Insert: {
+          created_at?: string
+          customer_name: string
+          customer_whatsapp: string
+          delivery_address?: Json
+          establishment_id: string
+          id?: string
+          order_items?: Json
+          payment_method: string
+          status?: string
+          total_price: string
+        }
+        Update: {
+          created_at?: string
+          customer_name?: string
+          customer_whatsapp?: string
+          delivery_address?: Json
+          establishment_id?: string
+          id?: string
+          order_items?: Json
+          payment_method?: string
+          status?: string
+          total_price?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'orders_establishment_id_fkey'
+            columns: ['establishment_id']
+            isOneToOne: false
+            referencedRelation: 'establishments'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       users: {
         Row: {
           created_at: string
@@ -351,6 +398,17 @@ export const Constants = {
 //   complement_groups: jsonb (nullable, default: '[]'::jsonb)
 //   sort_order: integer (nullable, default: 0)
 //   created_at: timestamp with time zone (not null, default: now())
+// Table: orders
+//   id: uuid (not null, default: gen_random_uuid())
+//   establishment_id: uuid (not null)
+//   customer_name: text (not null)
+//   customer_whatsapp: text (not null)
+//   delivery_address: jsonb (not null, default: '{}'::jsonb)
+//   payment_method: text (not null)
+//   order_items: jsonb (not null, default: '[]'::jsonb)
+//   total_price: text (not null)
+//   status: text (not null, default: 'ANÁLISE'::text)
+//   created_at: timestamp with time zone (not null, default: now())
 // Table: users
 //   id: uuid (not null)
 //   email: text (not null)
@@ -368,6 +426,9 @@ export const Constants = {
 //   FOREIGN KEY menu_items_category_id_fkey: FOREIGN KEY (category_id) REFERENCES menu_categories(id) ON DELETE CASCADE
 //   FOREIGN KEY menu_items_establishment_id_fkey: FOREIGN KEY (establishment_id) REFERENCES establishments(id) ON DELETE CASCADE
 //   PRIMARY KEY menu_items_pkey: PRIMARY KEY (id)
+// Table: orders
+//   FOREIGN KEY orders_establishment_id_fkey: FOREIGN KEY (establishment_id) REFERENCES establishments(id) ON DELETE CASCADE
+//   PRIMARY KEY orders_pkey: PRIMARY KEY (id)
 // Table: users
 //   FOREIGN KEY users_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
 //   PRIMARY KEY users_pkey: PRIMARY KEY (id)
@@ -399,6 +460,15 @@ export const Constants = {
 //   Policy "Users can insert own menu_items" (INSERT, PERMISSIVE) roles={public}
 //     WITH CHECK: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
 //   Policy "Users can update own menu_items" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+// Table: orders
+//   Policy "Public can insert orders" (INSERT, PERMISSIVE) roles={public}
+//     WITH CHECK: true
+//   Policy "Users can delete own orders" (DELETE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can update own orders" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
+//   Policy "Users can view own orders" (SELECT, PERMISSIVE) roles={public}
 //     USING: (establishment_id IN ( SELECT establishments.id    FROM establishments   WHERE (establishments.user_id = auth.uid())))
 // Table: users
 //   Policy "Users can insert own record" (INSERT, PERMISSIVE) roles={public}

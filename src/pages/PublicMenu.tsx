@@ -4,12 +4,13 @@ import {
   ShoppingBag,
   Store,
   Bike,
-  MessageSquare,
   Plus,
   Minus,
   ArrowLeft,
   Trash2,
   Search,
+  CheckCircle,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -60,6 +61,9 @@ export default function PublicMenu() {
   const [searchParams] = useSearchParams()
   const establishmentId = searchParams.get('id')
 
+  const [activeEstablishmentId, setActiveEstablishmentId] = useState<
+    string | null
+  >(establishmentId)
   const [loading, setLoading] = useState(true)
   const [establishment, setEstablishment] = useState<any>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -87,6 +91,7 @@ export default function PublicMenu() {
     'pix',
   )
   const [observations, setObservations] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const cartTotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0)
@@ -102,28 +107,41 @@ export default function PublicMenu() {
     (orderType === 'pickup' || isAddressValid)
 
   useEffect(() => {
-    if (!establishmentId) {
-      setLoading(false)
-      return
-    }
-
     const fetchData = async () => {
       try {
+        let targetId = activeEstablishmentId
+
+        if (!targetId) {
+          // If no ID provided, load the first establishment as a fallback for demo purposes
+          const { data } = await supabase
+            .from('establishments')
+            .select('id')
+            .limit(1)
+            .single()
+          if (data) {
+            setActiveEstablishmentId(data.id)
+            return // Will re-trigger effect
+          } else {
+            setLoading(false)
+            return
+          }
+        }
+
         const [estRes, catRes, itemsRes] = await Promise.all([
           supabase
             .from('establishments')
             .select('*')
-            .eq('id', establishmentId)
+            .eq('id', targetId)
             .single(),
           supabase
             .from('menu_categories')
             .select('*')
-            .eq('establishment_id', establishmentId)
+            .eq('establishment_id', targetId)
             .order('sort_order'),
           supabase
             .from('menu_items')
             .select('*')
-            .eq('establishment_id', establishmentId)
+            .eq('establishment_id', targetId)
             .order('sort_order'),
         ])
         if (estRes.data) setEstablishment(estRes.data)
@@ -156,35 +174,37 @@ export default function PublicMenu() {
 
     fetchData()
 
+    if (!activeEstablishmentId) return
+
     const channel = supabase
       .channel('public-menu-changes')
       .on(
-        'postgres',
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'establishments',
-          filter: `id=eq.${establishmentId}`,
+          filter: `id=eq.${activeEstablishmentId}`,
         },
         fetchData,
       )
       .on(
-        'postgres',
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'menu_items',
-          filter: `establishment_id=eq.${establishmentId}`,
+          filter: `establishment_id=eq.${activeEstablishmentId}`,
         },
         fetchData,
       )
       .on(
-        'postgres',
+        'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'menu_categories',
-          filter: `establishment_id=eq.${establishmentId}`,
+          filter: `establishment_id=eq.${activeEstablishmentId}`,
         },
         fetchData,
       )
@@ -193,7 +213,7 @@ export default function PublicMenu() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [establishmentId])
+  }, [activeEstablishmentId])
 
   const handleAddToCart = (item: CartItem) => {
     setCartItems((prev) => [...prev, item])
@@ -266,32 +286,63 @@ export default function PublicMenu() {
     updateCartItemQuantity(itemsOfProduct[itemsOfProduct.length - 1].id, -1)
   }
 
-  const handleFinalizeOrder = () => {
-    const itemsText = cartItems
-      .map((item) => {
-        let text = `${item.quantity}x ${item.product.name} - ${formatPrice(item.totalPrice)}`
-        if (item.variation) text += `\n  Variação: ${item.variation.name}`
-        if (item.complements.length > 0) {
-          item.complements.forEach((c) => {
-            text += `\n  + ${c.item.name}`
-          })
-        }
-        return text
+  const handleFinalizeOrder = async () => {
+    if (!establishment) return
+    setIsSubmitting(true)
+
+    try {
+      const orderItems = cartItems.map((item) => ({
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.totalPrice,
+        variation: item.variation?.name,
+        complements: item.complements.map((c) => c.item.name),
+      }))
+
+      const delivery_address =
+        orderType === 'delivery'
+          ? { street, number, neighborhood, city, observations }
+          : { observations }
+
+      const { error } = await supabase.from('orders').insert({
+        establishment_id: establishment.id,
+        customer_name: customerName,
+        customer_whatsapp: customerPhone,
+        delivery_address,
+        payment_method: paymentMethod,
+        order_items: orderItems,
+        total_price: cartTotal.toString(),
+        status: 'ANÁLISE',
       })
-      .join('\n\n')
 
-    const fullAddress = `${street}, ${number} - ${neighborhood}, ${city}`
-    const text = `*NOVO PEDIDO* 🍔\n\n*Cliente:* ${customerName}\n*Telefone:* ${customerPhone}\n\n*Tipo de Pedido:* ${orderType === 'delivery' ? 'Entrega 🛵' : 'Retirada 🏪'}\n${orderType === 'delivery' ? `*Endereço:* ${fullAddress}\n` : ''}*Pagamento:* ${paymentMethod === 'pix' ? 'PIX 💠' : paymentMethod === 'card' ? 'Cartão 💳' : 'Dinheiro 💵'}\n${observations ? `*Observações:* ${observations}\n` : ''}\n*ITENS DO PEDIDO:*\n${itemsText}\n\n*TOTAL:* ${formatPrice(cartTotal)}\n\n----------------------------\nPedido gerado via Cardápio Digital`
+      if (error) throw error
 
-    const encoded = encodeURIComponent(text)
-    window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank')
+      toast({
+        title: 'Pedido realizado com sucesso!',
+        description:
+          'Seu pedido foi recebido e já está em análise pelo restaurante.',
+        className: 'bg-green-50 text-green-900 border-green-200',
+      })
 
-    toast({
-      title: 'Pedido enviado!',
-      description: 'Você será redirecionado para o WhatsApp.',
-    })
-    setCartItems([])
-    setIsCartOpen(false)
+      setCartItems([])
+      setIsCartOpen(false)
+      setCheckoutStep('cart')
+      setCustomerName('')
+      setCustomerPhone('')
+      setStreet('')
+      setNumber('')
+      setNeighborhood('')
+      setCity('')
+      setObservations('')
+    } catch (err: any) {
+      toast({
+        title: 'Erro ao enviar pedido',
+        description: err.message || 'Tente novamente',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (loading)
@@ -300,7 +351,7 @@ export default function PublicMenu() {
         <div className="animate-spin h-8 w-8 border-4 border-brand-red border-t-transparent rounded-full" />
       </div>
     )
-  if (!establishmentId || !establishment)
+  if (!activeEstablishmentId || !establishment)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
         <Store className="h-16 w-16 text-slate-300 mb-4" />
@@ -708,10 +759,18 @@ export default function PublicMenu() {
                 <Button
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-14 text-lg rounded-xl shadow-sm active:scale-95 transition-all"
                   onClick={handleFinalizeOrder}
-                  disabled={!isCheckoutValid}
+                  disabled={!isCheckoutValid || isSubmitting}
                 >
-                  <MessageSquare className="mr-2 h-5 w-5" />
-                  Enviar Pedido
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />{' '}
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-5 w-5" /> Enviar Pedido
+                    </>
+                  )}
                 </Button>
               )}
             </div>

@@ -43,6 +43,7 @@ interface Order {
   status: OrderStatus
   phone: string
   address: string
+  observations: string
   rawItems: any[]
 }
 
@@ -60,9 +61,11 @@ const mapDbOrder = (dbOrder: any): Order => ({
   }),
   status: dbOrder.status as OrderStatus,
   phone: dbOrder.customer_whatsapp,
-  address: dbOrder.delivery_address
-    ? `${dbOrder.delivery_address.street}, ${dbOrder.delivery_address.number} - ${dbOrder.delivery_address.neighborhood}`
-    : '',
+  address:
+    dbOrder.delivery_address && dbOrder.delivery_address.street
+      ? `${dbOrder.delivery_address.street}, ${dbOrder.delivery_address.number} - ${dbOrder.delivery_address.neighborhood}`
+      : 'Retirada no local',
+  observations: dbOrder.delivery_address?.observations || '',
   rawItems: Array.isArray(dbOrder.order_items) ? dbOrder.order_items : [],
 })
 
@@ -411,6 +414,16 @@ export default function OrderManager() {
                         </div>
                       ))}
                     </div>
+                    {selectedOrder.observations && (
+                      <div className="p-4 bg-amber-50 border-b border-slate-100">
+                        <span className="font-bold text-amber-800 text-xs uppercase block mb-1">
+                          Observações
+                        </span>
+                        <p className="text-amber-900 text-sm leading-relaxed">
+                          {selectedOrder.observations}
+                        </p>
+                      </div>
+                    )}
                     <div className="bg-slate-50 p-4 flex justify-between items-center">
                       <span className="font-semibold text-slate-600">
                         Total
