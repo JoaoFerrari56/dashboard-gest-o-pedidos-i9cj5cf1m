@@ -13,10 +13,33 @@ export async function getEstablishment() {
   return { data, error }
 }
 
+export async function uploadLogo(file: File) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) throw new Error('Not authenticated')
+
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${user.id}-${Date.now()}.${fileExt}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('logos')
+    .upload(fileName, file)
+
+  if (uploadError) throw uploadError
+
+  const { data: publicUrlData } = supabase.storage
+    .from('logos')
+    .getPublicUrl(fileName)
+
+  return publicUrlData.publicUrl
+}
+
 export async function createEstablishment(payload: {
   name: string
   category: string
-  operating_hours: string
+  schedule: any
+  logo_url?: string
 }) {
   const {
     data: { user },
@@ -28,7 +51,8 @@ export async function createEstablishment(payload: {
     .insert({
       ...payload,
       user_id: user.id,
-    })
+      operating_hours: '',
+    } as any)
     .select()
     .single()
 

@@ -15,7 +15,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      establishments: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          name: string
+          operating_hours: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          name: string
+          operating_hours: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          name?: string
+          operating_hours?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -161,3 +187,33 @@ export const Constants = {
 // IMPORTANT: The TypeScript types above map UUID, TEXT, VARCHAR all to "string".
 // Use the COLUMN TYPES section below to know the real PostgreSQL type for each column.
 // Always use the correct PostgreSQL type when writing SQL migrations.
+
+// --- COLUMN TYPES (actual PostgreSQL types) ---
+// Use this to know the real database type when writing migrations.
+// "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: establishments
+//   id: uuid (not null, default: gen_random_uuid())
+//   user_id: uuid (not null)
+//   name: text (not null)
+//   category: text (not null)
+//   operating_hours: text (not null)
+//   created_at: timestamp with time zone (not null, default: now())
+
+// --- CONSTRAINTS ---
+// Table: establishments
+//   PRIMARY KEY establishments_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY establishments_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+//   UNIQUE establishments_user_id_key: UNIQUE (user_id)
+
+// --- ROW LEVEL SECURITY POLICIES ---
+// Table: establishments
+//   Policy "Users can insert own establishment" (INSERT, PERMISSIVE) roles={public}
+//     WITH CHECK: (auth.uid() = user_id)
+//   Policy "Users can update own establishment" (UPDATE, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = user_id)
+//   Policy "Users can view own establishment" (SELECT, PERMISSIVE) roles={public}
+//     USING: (auth.uid() = user_id)
+
+// --- INDEXES ---
+// Table: establishments
+//   CREATE UNIQUE INDEX establishments_user_id_key ON public.establishments USING btree (user_id)
