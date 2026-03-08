@@ -1,10 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Plus, Minus, ShoppingBag, ArrowLeft } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { ShoppingBag, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Sheet,
   SheetContent,
@@ -12,48 +10,19 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
+import { supabase } from '@/lib/supabase/client'
+import type {
+  Category,
+  Product,
+  ComplementItem,
+  Variation,
+} from '@/types/cardapio'
+import { parsePrice } from '@/utils/cardapio'
+import { ProductCard } from '@/components/public-menu/ProductCard'
+import { ProductDetailsModal } from '@/components/public-menu/ProductDetailsModal'
 
-// --- Types ---
-type ProductStatus = 'Ativo' | 'Inativo' | 'Em falta'
-
-interface Variation {
-  id: string
-  name: string
-  price: string
-}
-
-interface ComplementItem {
-  id: string
-  name: string
-  price: string
-}
-
-interface ComplementGroup {
-  id: string
-  name: string
-  selectionType: 'single' | 'multiple'
-  min: string
-  max: string
-  items: ComplementItem[]
-}
-
-interface Product {
-  id: string
-  name: string
-  description: string
-  category: string
-  price: string
-  size: string
-  serves: string
-  status: ProductStatus
-  image: string
-  variations?: Variation[]
-  complementGroups?: ComplementGroup[]
-}
-
-interface CartItem {
+export interface CartItem {
   id: string
   product: Product
   variation?: Variation
@@ -62,92 +31,109 @@ interface CartItem {
   totalPrice: number
 }
 
-// --- Utils ---
-const parsePrice = (priceStr: string | undefined | null) => {
-  if (!priceStr) return 0
-  const clean = priceStr.toString().replace(/[^\d.,]/g, '')
-  return parseFloat(clean.replace(/\./g, '').replace(',', '.')) || 0
-}
-
-const formatPrice = (value: number) => {
-  return `R$ ${value.toFixed(2).replace('.', ',')}`
-}
-
-const getDisplayPrice = (p: Product) => {
-  if (p.variations && p.variations.length > 0) {
-    const prices = p.variations
-      .map((v) => parsePrice(v.price))
-      .filter((v) => v > 0)
-    if (prices.length > 0) {
-      const minPrice = Math.min(...prices)
-      return `A partir de ${formatPrice(minPrice)}`
-    }
-    return 'Preço variável'
-  }
-  return p.price ? `R$ ${p.price}` : 'R$ 0,00'
-}
-
-// --- Mock Data (Synced with Cardapio.tsx) ---
-const mockCategories = ['Lanches', 'Bebidas', 'Sobremesas']
-
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'X-Burger Especial',
-    description:
-      'Pão brioche, hambúrguer artesanal 180g, queijo cheddar, alface, tomate e maionese da casa.',
-    category: 'Lanches',
-    price: '35,90',
-    size: '400g',
-    serves: '1',
-    status: 'Ativo',
-    image: 'https://img.usecurling.com/p/200/200?q=burger&color=orange',
-    variations: [],
-    complementGroups: [
-      {
-        id: 'g1',
-        name: 'Adicionais',
-        selectionType: 'multiple',
-        min: '0',
-        max: '5',
-        items: [
-          { id: 'i1', name: 'Bacon Extra', price: '5,00' },
-          { id: 'i2', name: 'Queijo Extra', price: '4,00' },
-        ],
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Refrigerante',
-    description: 'Coca-cola, Guaraná ou Fanta.',
-    category: 'Bebidas',
-    price: '',
-    size: '',
-    serves: '1',
-    status: 'Ativo',
-    image: 'https://img.usecurling.com/p/200/200?q=soda',
-    variations: [
-      { id: 'v1', name: 'Lata 350ml', price: '6,50' },
-      { id: 'v2', name: 'Garrafa 600ml', price: '8,90' },
-      { id: 'v3', name: 'Garrafa 2L', price: '14,00' },
-    ],
-    complementGroups: [],
-  },
-]
+const formatPrice = (value: number) =>
+  `R$ ${value.toFixed(2).replace('.', ',')}`
 
 export default function PublicMenu() {
   const { toast } = useToast()
+  const [searchParams] = useSearchParams()
+  const establishmentId = searchParams.get('id')
 
-  // Cart State
+  const [loading, setLoading] = useState(true)
+  const [establishment, setEstablishment] = useState<any>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
-
-  // Product Modal State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   const cartTotal = cartItems.reduce((sum, item) => sum + item.totalPrice, 0)
   const cartQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  useEffect(() => {
+    if (!establishmentId) {
+      setLoading(false)
+      return
+    }
+
+    const fetchData = async () => {
+      try {
+        const [estRes, catRes, itemsRes] = await Promise.all([
+          supabase
+            .from('establishments')
+            .select('*')
+            .eq('id', establishmentId)
+            .single(),
+          supabase
+            .from('menu_categories')
+            .select('*')
+            .eq('establishment_id', establishmentId)
+            .order('sort_order'),
+          supabase
+            .from('menu_items')
+            .select('*')
+            .eq('establishment_id', establishmentId)
+            .order('sort_order'),
+        ])
+        if (estRes.data) setEstablishment(estRes.data)
+        if (catRes.data) setCategories(catRes.data)
+        if (itemsRes.data) {
+          setProducts(
+            itemsRes.data.map((i: any) => ({
+              id: i.id,
+              name: i.name,
+              description: i.description || '',
+              category_id: i.category_id,
+              price: i.price || '',
+              size: i.size || '',
+              serves: i.serves || '',
+              status: i.status,
+              image: i.image_url || '',
+              variations: Array.isArray(i.variations) ? i.variations : [],
+              complementGroups: Array.isArray(i.complement_groups)
+                ? i.complement_groups
+                : [],
+            })),
+          )
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+
+    const channel = supabase
+      .channel('public-menu-changes')
+      .on(
+        'postgres',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'menu_items',
+          filter: `establishment_id=eq.${establishmentId}`,
+        },
+        fetchData,
+      )
+      .on(
+        'postgres',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'menu_categories',
+          filter: `establishment_id=eq.${establishmentId}`,
+        },
+        fetchData,
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [establishmentId])
 
   const handleAddToCart = (item: CartItem) => {
     setCartItems((prev) => [...prev, item])
@@ -158,31 +144,45 @@ export default function PublicMenu() {
     })
   }
 
+  if (loading)
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin h-8 w-8 border-4 border-brand-red border-t-transparent rounded-full" />
+      </div>
+    )
+  if (!establishmentId || !establishment)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
+        <Store className="h-16 w-16 text-slate-300 mb-4" />
+        <h2 className="text-xl font-bold">Estabelecimento não encontrado</h2>
+        <p className="text-slate-500 mt-2">
+          Acesse através do link correto do estabelecimento.
+        </p>
+      </div>
+    )
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 selection:bg-brand-red selection:text-white">
-      {/* Header Banner */}
       <div className="bg-gradient-to-br from-brand-red to-red-700 pt-16 pb-12 px-6 text-center text-white relative overflow-hidden shadow-sm">
         <div className="absolute inset-0 bg-[url('https://img.usecurling.com/p/400/200?q=pattern&color=red')] opacity-20 mix-blend-overlay"></div>
         <h1 className="text-[32px] md:text-4xl font-black relative z-10 drop-shadow-sm tracking-tight leading-none">
-          Deliro Delivery
+          {establishment.name}
         </h1>
         <p className="text-red-100 text-[15px] md:text-base mt-2.5 relative z-10 font-medium">
           Clique nos itens para simular o pedido
         </p>
       </div>
 
-      {/* Main Content */}
       <main className="max-w-3xl mx-auto p-5 md:p-8 space-y-10 mt-2">
-        {mockCategories.map((cat) => {
-          const productsInCategory = mockProducts.filter(
-            (p) => p.category === cat,
+        {categories.map((cat) => {
+          const productsInCategory = products.filter(
+            (p) => p.category_id === cat.id && p.status !== 'Inativo',
           )
           if (productsInCategory.length === 0) return null
-
           return (
-            <div key={cat} id={`category-${cat}`} className="space-y-5">
+            <div key={cat.id} id={`category-${cat.id}`} className="space-y-5">
               <h2 className="font-bold text-slate-800 text-xl border-b border-slate-200/80 pb-3 tracking-tight">
-                {cat}
+                {cat.name}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {productsInCategory.map((p) => (
@@ -196,9 +196,13 @@ export default function PublicMenu() {
             </div>
           )
         })}
+        {products.filter((p) => p.status !== 'Inativo').length === 0 && (
+          <div className="text-center py-20 text-slate-500 font-medium">
+            Nenhum produto disponível no momento.
+          </div>
+        )}
       </main>
 
-      {/* Floating Cart Button */}
       {cartQuantity > 0 && (
         <div className="fixed bottom-6 left-0 right-0 px-4 z-40 flex justify-center animate-in slide-in-from-bottom-4 fade-in duration-300">
           <div
@@ -221,7 +225,6 @@ export default function PublicMenu() {
         </div>
       )}
 
-      {/* Modals */}
       {selectedProduct && (
         <ProductDetailsModal
           product={selectedProduct}
@@ -231,7 +234,6 @@ export default function PublicMenu() {
         />
       )}
 
-      {/* Cart Summary Modal */}
       <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
         <SheetContent
           side="right"
@@ -245,16 +247,12 @@ export default function PublicMenu() {
               </SheetTitle>
             </SheetHeader>
           </div>
-
           <ScrollArea className="flex-1 p-5 relative">
             {cartItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center py-20 opacity-60">
                 <ShoppingBag className="h-16 w-16 text-slate-300 mb-4" />
                 <p className="text-slate-600 font-semibold text-lg">
                   Sua sacola está vazia
-                </p>
-                <p className="text-slate-500 mt-1 max-w-[200px]">
-                  Adicione itens do cardápio para começar seu pedido.
                 </p>
                 <Button
                   className="mt-6 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold"
@@ -282,7 +280,6 @@ export default function PublicMenu() {
                           {formatPrice(item.totalPrice)}
                         </span>
                       </div>
-
                       <div className="text-sm text-slate-500 mt-2 space-y-1">
                         {item.variation && (
                           <p>
@@ -309,7 +306,6 @@ export default function PublicMenu() {
               </div>
             )}
           </ScrollArea>
-
           {cartItems.length > 0 && (
             <div className="p-5 bg-white border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 shrink-0">
               <div className="space-y-3 mb-6">
@@ -328,12 +324,9 @@ export default function PublicMenu() {
                 </div>
               </div>
               <Button
-                className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-14 text-lg rounded-xl transition-all shadow-sm active:scale-95"
+                className="w-full bg-brand-red hover:bg-red-700 text-white font-bold h-14 text-lg rounded-xl shadow-sm active:scale-95"
                 onClick={() => {
-                  toast({
-                    title: 'Pedido Simulado!',
-                    description: 'Esta é uma tela de demonstração.',
-                  })
+                  toast({ title: 'Pedido Simulado!' })
                   setIsCartOpen(false)
                   setCartItems([])
                 }}
@@ -345,433 +338,5 @@ export default function PublicMenu() {
         </SheetContent>
       </Sheet>
     </div>
-  )
-}
-
-function ProductCard({
-  product,
-  onClick,
-}: {
-  product: Product
-  onClick: () => void
-}) {
-  const isAvailable =
-    product.status !== 'Em falta' && product.status !== 'Inativo'
-  const hasOptions =
-    (product.variations && product.variations.length > 0) ||
-    (product.complementGroups && product.complementGroups.length > 0)
-
-  return (
-    <div
-      onClick={() => isAvailable && onClick()}
-      className={cn(
-        'flex gap-4 bg-white p-4 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 transition-all',
-        isAvailable
-          ? 'cursor-pointer hover:border-brand-red/30 hover:shadow-md active:scale-[0.98]'
-          : 'opacity-60 grayscale-[0.5]',
-      )}
-    >
-      <div className="flex-1 flex flex-col justify-between">
-        <div>
-          <h3 className="font-bold text-slate-800 text-[15px] leading-tight mb-1.5">
-            {product.name}
-          </h3>
-          <p className="text-[13px] text-slate-500 line-clamp-2 leading-relaxed pr-2">
-            {product.description}
-          </p>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="font-bold text-slate-800 text-[15px]">
-            {getDisplayPrice(product)}
-          </span>
-          {!isAvailable && (
-            <Badge className="bg-red-50 text-brand-red border-none hover:bg-red-50 font-bold uppercase tracking-wider text-[10px]">
-              Esgotado
-            </Badge>
-          )}
-          {isAvailable && hasOptions && (
-            <span className="text-[11px] font-semibold text-[#d97706] bg-orange-50 border border-orange-100/80 px-2.5 py-[3px] rounded-md">
-              + Opções
-            </span>
-          )}
-        </div>
-      </div>
-      {product.image && (
-        <div className="h-[90px] w-[90px] rounded-xl overflow-hidden shrink-0 shadow-sm border border-slate-100 relative">
-          <img
-            src={product.image}
-            className="w-full h-full object-cover"
-            alt={product.name}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ProductDetailsModal({
-  product,
-  isOpen,
-  onClose,
-  onAddToCart,
-}: {
-  product: Product
-  isOpen: boolean
-  onClose: () => void
-  onAddToCart: (item: CartItem) => void
-}) {
-  const [quantity, setQuantity] = useState(1)
-  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(
-    product.variations && product.variations.length > 0
-      ? product.variations[0].id
-      : null,
-  )
-  const [selectedComplements, setSelectedComplements] = useState<
-    Record<string, string[]>
-  >({})
-
-  // Calculate Prices
-  const basePrice =
-    selectedVariationId && product.variations
-      ? parsePrice(
-          product.variations.find((v) => v.id === selectedVariationId)?.price,
-        )
-      : parsePrice(product.price)
-
-  const complementsPrice = Object.entries(selectedComplements).reduce(
-    (sum, [groupId, itemIds]) => {
-      const group = product.complementGroups?.find((g) => g.id === groupId)
-      if (!group) return sum
-      const itemsTotal = itemIds.reduce((itemSum, itemId) => {
-        const item = group.items.find((i) => i.id === itemId)
-        return itemSum + (item ? parsePrice(item.price) : 0)
-      }, 0)
-      return sum + itemsTotal
-    },
-    0,
-  )
-
-  const totalPrice = (basePrice + complementsPrice) * quantity
-
-  // Validation
-  const isValid = useMemo(() => {
-    if (
-      product.variations &&
-      product.variations.length > 0 &&
-      !selectedVariationId
-    )
-      return false
-
-    if (product.complementGroups) {
-      for (const group of product.complementGroups) {
-        const min = parseInt(group.min) || 0
-        const selectedCount = (selectedComplements[group.id] || []).length
-        if (selectedCount < min) return false
-      }
-    }
-    return true
-  }, [product, selectedVariationId, selectedComplements])
-
-  const handleToggleMultiple = (
-    groupId: string,
-    itemId: string,
-    max: number,
-  ) => {
-    const current = selectedComplements[groupId] || []
-    if (current.includes(itemId)) {
-      setSelectedComplements((prev) => ({
-        ...prev,
-        [groupId]: current.filter((id) => id !== itemId),
-      }))
-    } else {
-      if (current.length < max) {
-        setSelectedComplements((prev) => ({
-          ...prev,
-          [groupId]: [...current, itemId],
-        }))
-      }
-    }
-  }
-
-  const handleSelectSingle = (groupId: string, itemId: string) => {
-    setSelectedComplements((prev) => ({ ...prev, [groupId]: [itemId] }))
-  }
-
-  const handleAdd = () => {
-    if (!isValid) return
-
-    const variation = product.variations?.find(
-      (v) => v.id === selectedVariationId,
-    )
-    const complements: { groupName: string; item: ComplementItem }[] = []
-
-    Object.entries(selectedComplements).forEach(([groupId, itemIds]) => {
-      const group = product.complementGroups?.find((g) => g.id === groupId)
-      if (group) {
-        itemIds.forEach((itemId) => {
-          const item = group.items.find((i) => i.id === itemId)
-          if (item) complements.push({ groupName: group.name, item })
-        })
-      }
-    })
-
-    onAddToCart({
-      id: Date.now().toString() + Math.random().toString(36).substring(7),
-      product,
-      variation,
-      complements,
-      quantity,
-      totalPrice,
-    })
-  }
-
-  return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="bottom"
-        className="h-[90vh] sm:h-auto sm:max-h-[90vh] p-0 flex flex-col bg-slate-50 rounded-t-[2rem] sm:rounded-2xl sm:max-w-xl mx-auto border-none shadow-2xl"
-      >
-        <div className="absolute top-4 left-4 z-50">
-          <Button
-            variant="secondary"
-            size="icon"
-            className="h-10 w-10 rounded-full bg-white/80 backdrop-blur shadow-sm text-slate-700 hover:bg-white"
-            onClick={onClose}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </div>
-
-        <ScrollArea className="flex-1 overflow-y-auto no-scrollbar relative">
-          {product.image && (
-            <div className="h-64 w-full bg-slate-200 relative shrink-0">
-              <img
-                src={product.image}
-                className="w-full h-full object-cover"
-                alt={product.name}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
-            </div>
-          )}
-
-          <div
-            className={cn(
-              'p-6 bg-white shrink-0 relative',
-              product.image ? '-mt-6 rounded-t-3xl' : '',
-            )}
-          >
-            <h2 className="text-2xl font-black text-slate-800 leading-tight">
-              {product.name}
-            </h2>
-            <p className="text-slate-500 mt-2 leading-relaxed text-sm">
-              {product.description}
-            </p>
-
-            {(!product.variations || product.variations.length === 0) && (
-              <div className="mt-4 font-black text-xl text-brand-green">
-                {formatPrice(parsePrice(product.price))}
-              </div>
-            )}
-          </div>
-
-          <div className="p-4 space-y-4 pb-8 bg-slate-50">
-            {/* Variations */}
-            {product.variations && product.variations.length > 0 && (
-              <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-bold text-slate-800">
-                      Escolha o tamanho
-                    </h3>
-                    <p className="text-xs text-slate-500">Obrigatório</p>
-                  </div>
-                  <Badge className="bg-slate-800 hover:bg-slate-800 uppercase text-[10px] px-2 font-bold tracking-wider">
-                    Obrigatório
-                  </Badge>
-                </div>
-
-                <RadioGroup
-                  value={selectedVariationId || ''}
-                  onValueChange={setSelectedVariationId}
-                  className="space-y-3"
-                >
-                  {product.variations.map((v) => (
-                    <label
-                      key={v.id}
-                      className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-red/50 cursor-pointer transition-colors has-[:checked]:border-brand-red has-[:checked]:bg-red-50/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <RadioGroupItem
-                          value={v.id}
-                          className="border-slate-300 text-brand-red"
-                        />
-                        <span className="font-medium text-slate-700">
-                          {v.name}
-                        </span>
-                      </div>
-                      <span className="font-bold text-slate-800">
-                        {formatPrice(parsePrice(v.price))}
-                      </span>
-                    </label>
-                  ))}
-                </RadioGroup>
-              </div>
-            )}
-
-            {/* Complements */}
-            {product.complementGroups?.map((group) => {
-              const min = parseInt(group.min) || 0
-              const max = parseInt(group.max) || 0
-              const currentSelected = selectedComplements[group.id] || []
-              const isRequired = min > 0
-
-              return (
-                <div
-                  key={group.id}
-                  className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/60"
-                >
-                  <div className="flex items-start justify-between mb-4 gap-4">
-                    <div>
-                      <h3 className="font-bold text-slate-800 leading-tight">
-                        {group.name}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {min === max
-                          ? `Escolha ${max} opção`
-                          : `Escolha de ${min} até ${max} opções`}
-                      </p>
-                    </div>
-                    {isRequired ? (
-                      <Badge className="bg-slate-800 hover:bg-slate-800 uppercase text-[10px] px-2 font-bold tracking-wider shrink-0">
-                        Obrigatório
-                      </Badge>
-                    ) : (
-                      <Badge
-                        variant="secondary"
-                        className="uppercase text-[10px] px-2 font-bold tracking-wider shrink-0 bg-slate-100 text-slate-500"
-                      >
-                        Opcional
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    {group.selectionType === 'single' ? (
-                      <RadioGroup
-                        value={currentSelected[0] || ''}
-                        onValueChange={(v) => handleSelectSingle(group.id, v)}
-                        className="space-y-3"
-                      >
-                        {group.items.map((item) => (
-                          <label
-                            key={item.id}
-                            className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-brand-red/50 cursor-pointer transition-colors has-[:checked]:border-brand-red has-[:checked]:bg-red-50/50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <RadioGroupItem
-                                value={item.id}
-                                className="border-slate-300 text-brand-red"
-                              />
-                              <span className="font-medium text-slate-700">
-                                {item.name}
-                              </span>
-                            </div>
-                            {parsePrice(item.price) > 0 && (
-                              <span className="font-bold text-slate-600">
-                                + {formatPrice(parsePrice(item.price))}
-                              </span>
-                            )}
-                          </label>
-                        ))}
-                      </RadioGroup>
-                    ) : (
-                      <div className="space-y-3">
-                        {group.items.map((item) => {
-                          const isChecked = currentSelected.includes(item.id)
-                          const isDisabled =
-                            !isChecked && currentSelected.length >= max
-
-                          return (
-                            <label
-                              key={item.id}
-                              className={cn(
-                                'flex items-center justify-between p-3 rounded-xl border transition-colors cursor-pointer',
-                                isChecked
-                                  ? 'border-brand-red bg-red-50/50'
-                                  : 'border-slate-100 hover:border-brand-red/50',
-                                isDisabled
-                                  ? 'opacity-50 cursor-not-allowed hover:border-slate-100'
-                                  : '',
-                              )}
-                              onClick={(e) => {
-                                if (isDisabled) e.preventDefault()
-                              }}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Checkbox
-                                  checked={isChecked}
-                                  onCheckedChange={() =>
-                                    handleToggleMultiple(group.id, item.id, max)
-                                  }
-                                  disabled={isDisabled}
-                                  className="border-slate-300 data-[state=checked]:bg-brand-red data-[state=checked]:border-brand-red"
-                                />
-                                <span className="font-medium text-slate-700">
-                                  {item.name}
-                                </span>
-                              </div>
-                              {parsePrice(item.price) > 0 && (
-                                <span className="font-bold text-slate-600">
-                                  + {formatPrice(parsePrice(item.price))}
-                                </span>
-                              )}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </ScrollArea>
-
-        {/* Footer Actions */}
-        <div className="bg-white p-4 sm:p-6 border-t border-slate-200 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-10 shrink-0 flex flex-col sm:flex-row gap-4">
-          <div className="flex items-center justify-center gap-4 bg-slate-100 p-2 rounded-xl sm:w-auto w-full">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 text-slate-600 hover:bg-white rounded-lg shadow-sm"
-              onClick={() => quantity > 1 && setQuantity((q) => q - 1)}
-              disabled={quantity <= 1}
-            >
-              <Minus className="h-4 w-4" />
-            </Button>
-            <span className="font-bold text-lg w-6 text-center text-slate-800">
-              {quantity}
-            </span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 text-brand-red hover:bg-white rounded-lg shadow-sm"
-              onClick={() => setQuantity((q) => q + 1)}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Button
-            className="flex-1 bg-brand-red hover:bg-red-700 text-white font-bold h-14 rounded-xl text-lg flex items-center justify-between px-6 shadow-md transition-all active:scale-95 disabled:opacity-50"
-            disabled={!isValid}
-            onClick={handleAdd}
-          >
-            <span>Adicionar</span>
-            <span>{formatPrice(totalPrice)}</span>
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
   )
 }

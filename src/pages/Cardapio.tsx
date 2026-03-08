@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   Edit2,
-  GripVertical,
   Trash2,
   LinkIcon,
   ExternalLink,
@@ -39,7 +38,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
@@ -83,8 +81,6 @@ export default function Cardapio() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product>(defaultProduct)
 
-  const [dragEnabledCat, setDragEnabledCat] = useState<string | null>(null)
-  const [draggedCat, setDraggedCat] = useState<string | null>(null)
   const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
 
@@ -144,8 +140,9 @@ export default function Cardapio() {
   }, [user])
 
   const handleCopyLink = () => {
+    if (!establishmentId) return
     navigator.clipboard.writeText(
-      'https://dashboard-gestao-pedidos-ab1ea.goskip.app/visualizacao-cardapio',
+      `${window.location.origin}/visualizacao-cardapio?id=${establishmentId}`,
     )
     toast({ title: 'Link copiado!' })
   }
@@ -326,7 +323,12 @@ export default function Cardapio() {
           </Button>
           <Button
             className="bg-brand-red text-white"
-            onClick={() => window.open('/visualizacao-cardapio', '_blank')}
+            onClick={() =>
+              window.open(
+                `/visualizacao-cardapio?id=${establishmentId}`,
+                '_blank',
+              )
+            }
           >
             <ExternalLink className="h-4 w-4 mr-2" /> Ver Cardápio
           </Button>
