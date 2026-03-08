@@ -1,9 +1,18 @@
 import { supabase } from '@/lib/supabase/client'
 
 export async function getEstablishment() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  if (!session?.user) {
+    return { data: null, error: new Error('Not authenticated') }
+  }
+
   const { data, error } = await supabase
     .from('establishments')
     .select('*')
+    .eq('user_id', session.user.id)
     .single()
 
   if (error && error.code !== 'PGRST116') {
@@ -15,16 +24,16 @@ export async function getEstablishment() {
 
 export async function uploadLogo(file: File) {
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error('Not authenticated')
 
   const fileExt = file.name.split('.').pop()
-  const fileName = `${user.id}-${Date.now()}.${fileExt}`
+  const fileName = `${session.user.id}-${Date.now()}.${fileExt}`
 
   const { error: uploadError } = await supabase.storage
     .from('logos')
-    .upload(fileName, file)
+    .upload(fileName, file, { upsert: true })
 
   if (uploadError) throw uploadError
 
@@ -42,23 +51,60 @@ export async function createEstablishment(payload: {
   logo_url?: string
 }) {
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
+    data: { session },
+  } = await supabase.auth.getSession()
 
-  // Using upsert ensures that if an incomplete record was created previously, we update it successfully
-  const { data, error } = await supabase
-    .from('establishments')
-    .upsert(
-      {
-        ...payload,
-        user_id: user.id,
-        operating_hours: '',
-      } as any,
-      { onConflict: 'user_id' },
-    )
-    .select()
-    .single()
+  if (!session?.user) {
+    return {
+      data: null,
+      error: new Error(
+        'Erro de autenticação: Usuário não logado. Por favor, faça login novamente.',
+      ),
+    }
+  }
 
-  return { data, error }
+  const user_id = session.user.id
+
+  try {
+    // Check if establishment already exists for this user to avoid upsert conflicts
+    const { data: existing, error: existingError } = await supabase
+      .from('establishments')
+      .select('id')
+      .eq('user_id', user_id)
+      .maybeSingle()
+
+    if (existingError) {
+      return { data: null, error: existingError }
+    }
+
+    if (existing) {
+      // Update existing record
+      const { data, error } = await supabase
+        .from('establishments')
+        .update({
+          ...payload,
+          operating_hours: '', // Legacy field compatibility
+        })
+        .eq('id', existing.id)
+        .select()
+        .single()
+
+      return { data, error }
+    } else {
+      // Insert new record, explicitly passing the authenticated user's ID
+      const { data, error } = await supabase
+        .from('establishments')
+        .insert({
+          ...payload,
+          user_id,
+          operating_hours: '',
+        })
+        .select()
+        .single()
+
+      return { data, error }
+    }
+  } catch (err: any) {
+    return { data: null, error: err }
+  }
 }

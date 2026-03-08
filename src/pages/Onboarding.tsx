@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,6 +22,7 @@ import {
   WeeklySchedule,
 } from '@/components/onboarding/ScheduleBuilder'
 import { LogoUpload } from '@/components/onboarding/LogoUpload'
+import { supabase } from '@/lib/supabase/client'
 
 const DAY_LABELS: Record<string, string> = {
   monday: 'Segunda-feira',
@@ -41,7 +41,6 @@ export default function Onboarding() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
-  const navigate = useNavigate()
 
   useEffect(() => {
     let mounted = true
@@ -74,6 +73,7 @@ export default function Onboarding() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
     const errorMsg = validate()
     if (errorMsg) {
       toast({ variant: 'destructive', title: 'Atenção', description: errorMsg })
@@ -82,6 +82,15 @@ export default function Onboarding() {
 
     setLoading(true)
     try {
+      // Validate session explicitly before proceeding
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+      if (sessionError || !session?.user) {
+        throw new Error('Sessão inválida. Por favor, faça login novamente.')
+      }
+
       let logo_url = ''
       if (logoFile) {
         logo_url = await uploadLogo(logoFile)
@@ -105,7 +114,10 @@ export default function Onboarding() {
         title: 'Tudo pronto!',
         description: 'Seu estabelecimento foi configurado.',
       })
-      navigate('/', { replace: true })
+
+      // Use window.location.replace to ensure the ProtectedRoute completely remounts and re-evaluates
+      // the authentication and establishment state for a smooth transition to the dashboard.
+      window.location.replace('/')
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -113,7 +125,6 @@ export default function Onboarding() {
         description:
           error.message || 'Ocorreu um erro ao configurar o estabelecimento.',
       })
-    } finally {
       setLoading(false)
     }
   }
