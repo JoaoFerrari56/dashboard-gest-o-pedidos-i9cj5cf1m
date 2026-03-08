@@ -29,5 +29,8 @@
     "src/components/ui/**/*",
     "tests/**/*",
     "README.md"
-  ]
+  ],
+  "deployment": {
+    "lastDevBuildRef": "2e498e5"
+  }
 }
