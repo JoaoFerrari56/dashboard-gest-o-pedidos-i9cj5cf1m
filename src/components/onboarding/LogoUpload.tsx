@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Store } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Store, Upload } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 interface LogoUploadProps {
@@ -10,6 +10,7 @@ interface LogoUploadProps {
 
 export function LogoUpload({ onFileSelect }: LogoUploadProps) {
   const [preview, setPreview] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -48,13 +49,24 @@ export function LogoUpload({ onFileSelect }: LogoUploadProps) {
           )}
         </div>
         <div className="flex-1">
-          <Input
+          <input
             type="file"
+            ref={fileInputRef}
             accept="image/png, image/jpeg, image/jpg"
             onChange={handleChange}
-            className="text-xs file:bg-brand-red/10 file:text-brand-red file:border-0 file:rounded-md file:px-3 file:py-1 file:mr-3 file:font-medium file:cursor-pointer cursor-pointer hover:file:bg-brand-red/20 h-9 bg-white transition-colors"
+            className="hidden"
           />
-          <p className="text-[11px] text-slate-500 mt-1.5 font-medium">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-9 bg-white border-brand-red/20 text-brand-red hover:bg-brand-red/10 hover:text-brand-red font-medium transition-colors"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Selecionar Logo
+          </Button>
+          <p className="text-[11px] text-slate-500 mt-2 font-medium">
             Formatos: JPG, PNG. Tamanho Máx: 2MB.
           </p>
         </div>

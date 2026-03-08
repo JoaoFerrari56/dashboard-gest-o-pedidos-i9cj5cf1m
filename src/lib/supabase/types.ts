@@ -20,24 +20,30 @@ export type Database = {
           category: string
           created_at: string
           id: string
+          logo_url: string | null
           name: string
-          operating_hours: string
+          operating_hours: string | null
+          schedule: Json
           user_id: string
         }
         Insert: {
           category: string
           created_at?: string
           id?: string
+          logo_url?: string | null
           name: string
-          operating_hours: string
+          operating_hours?: string | null
+          schedule?: Json
           user_id: string
         }
         Update: {
           category?: string
           created_at?: string
           id?: string
+          logo_url?: string | null
           name?: string
-          operating_hours?: string
+          operating_hours?: string | null
+          schedule?: Json
           user_id?: string
         }
         Relationships: []
@@ -196,8 +202,10 @@ export const Constants = {
 //   user_id: uuid (not null)
 //   name: text (not null)
 //   category: text (not null)
-//   operating_hours: text (not null)
+//   operating_hours: text (nullable)
 //   created_at: timestamp with time zone (not null, default: now())
+//   logo_url: text (nullable)
+//   schedule: jsonb (not null, default: '{}'::jsonb)
 
 // --- CONSTRAINTS ---
 // Table: establishments
