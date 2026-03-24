@@ -38,11 +38,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null)
       setLoading(false)
     })
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-    })
+
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+      })
+      .catch((error) => {
+        console.error('Erro ao recuperar a sessão:', error)
+        setSession(null)
+        setUser(null)
+        setLoading(false)
+      })
+
     return () => subscription.unsubscribe()
   }, [])
 
