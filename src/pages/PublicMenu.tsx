@@ -107,22 +107,27 @@ export default function PublicMenu() {
     (orderType === 'pickup' || isAddressValid)
 
   useEffect(() => {
+    let mounted = true
+
     const fetchData = async () => {
       try {
         let targetId = activeEstablishmentId
 
         if (!targetId) {
           // If no ID provided, load the first establishment as a fallback for demo purposes
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('establishments')
             .select('id')
             .limit(1)
             .single()
-          if (data) {
+
+          if (error) throw error
+
+          if (data && mounted) {
             setActiveEstablishmentId(data.id)
             return // Will re-trigger effect
           } else {
-            setLoading(false)
+            if (mounted) setLoading(false)
             return
           }
         }
@@ -144,31 +149,34 @@ export default function PublicMenu() {
             .eq('establishment_id', targetId)
             .order('sort_order'),
         ])
-        if (estRes.data) setEstablishment(estRes.data)
-        if (catRes.data) setCategories(catRes.data)
-        if (itemsRes.data) {
-          setProducts(
-            itemsRes.data.map((i: any) => ({
-              id: i.id,
-              name: i.name,
-              description: i.description || '',
-              category_id: i.category_id,
-              price: i.price || '',
-              size: i.size || '',
-              serves: i.serves || '',
-              status: i.status,
-              image: i.image_url || '',
-              variations: Array.isArray(i.variations) ? i.variations : [],
-              complementGroups: Array.isArray(i.complement_groups)
-                ? i.complement_groups
-                : [],
-            })),
-          )
+
+        if (mounted) {
+          if (estRes.data) setEstablishment(estRes.data)
+          if (catRes.data) setCategories(catRes.data)
+          if (itemsRes.data) {
+            setProducts(
+              itemsRes.data.map((i: any) => ({
+                id: i.id,
+                name: i.name,
+                description: i.description || '',
+                category_id: i.category_id,
+                price: i.price || '',
+                size: i.size || '',
+                serves: i.serves || '',
+                status: i.status,
+                image: i.image_url || '',
+                variations: Array.isArray(i.variations) ? i.variations : [],
+                complementGroups: Array.isArray(i.complement_groups)
+                  ? i.complement_groups
+                  : [],
+              })),
+            )
+          }
         }
       } catch (err) {
-        console.error(err)
+        console.error('Error fetching public menu:', err)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
@@ -211,6 +219,7 @@ export default function PublicMenu() {
       .subscribe()
 
     return () => {
+      mounted = false
       supabase.removeChannel(channel)
     }
   }, [activeEstablishmentId])

@@ -45,15 +45,23 @@ export default function Onboarding() {
   useEffect(() => {
     let mounted = true
     async function loadExisting() {
-      const { data } = await getEstablishment()
-      if (mounted && data) {
-        if (data.name) setName(data.name)
-        if (data.category) setCategory(data.category)
-        if (data.schedule && Object.keys(data.schedule).length > 0) {
-          setSchedule(data.schedule as WeeklySchedule)
+      try {
+        const { data, error } = await getEstablishment()
+        if (error && error.code !== 'PGRST116') {
+          console.error('Failed to load existing establishment:', error)
         }
+        if (mounted && data) {
+          if (data.name) setName(data.name)
+          if (data.category) setCategory(data.category)
+          if (data.schedule && Object.keys(data.schedule).length > 0) {
+            setSchedule(data.schedule as WeeklySchedule)
+          }
+        }
+      } catch (err) {
+        console.error('Exception loading existing establishment', err)
+      } finally {
+        if (mounted) setFetching(false)
       }
-      if (mounted) setFetching(false)
     }
     loadExisting()
     return () => {

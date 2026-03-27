@@ -85,32 +85,45 @@ export default function Cardapio() {
   const [productToDelete, setProductToDelete] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    let mounted = true
+
+    if (!user) {
+      setLoading(false)
+      return
+    }
+
     async function loadData() {
       try {
-        const { data: est } = await supabase
+        const { data: est, error: estError } = await supabase
           .from('establishments')
           .select('id, name')
           .eq('user_id', user!.id)
           .single()
-        if (est) {
+
+        if (estError && estError.code !== 'PGRST116') throw estError
+
+        if (est && mounted) {
           setEstablishmentId(est.id)
           if (est.name) setMenuName(est.name)
+
           const { data: cats } = await supabase
             .from('menu_categories')
             .select('*')
             .eq('establishment_id', est.id)
             .order('sort_order')
-          if (cats) {
+
+          if (cats && mounted) {
             setCategories(cats)
             setOpenCategories(cats.map((c) => c.id))
           }
+
           const { data: items } = await supabase
             .from('menu_items')
             .select('*')
             .eq('establishment_id', est.id)
             .order('sort_order')
-          if (items) {
+
+          if (items && mounted) {
             setProducts(
               items.map((i) => ({
                 id: i.id,
@@ -131,12 +144,17 @@ export default function Cardapio() {
           }
         }
       } catch (e) {
-        console.error(e)
+        console.error('Error loading menu data:', e)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
+
     loadData()
+
+    return () => {
+      mounted = false
+    }
   }, [user])
 
   const handleCopyLink = () => {
@@ -290,6 +308,7 @@ export default function Cardapio() {
         <div className="animate-spin h-8 w-8 border-4 border-brand-red border-t-transparent rounded-full" />
       </div>
     )
+
   if (!establishmentId)
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)] text-center space-y-4">
