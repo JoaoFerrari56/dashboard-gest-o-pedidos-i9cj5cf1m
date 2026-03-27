@@ -42,7 +42,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (error) {
           console.warn('Session initialization warning:', error.message)
-          await supabase.auth.signOut().catch(() => {})
         }
 
         if (mounted) {
@@ -90,9 +89,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
       })
       return { error }
     } catch (err) {

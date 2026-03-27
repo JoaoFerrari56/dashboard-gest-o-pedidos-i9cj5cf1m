@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -19,11 +19,18 @@ export default function Auth() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signIn, signUp } = useAuth()
+  const { signIn, signUp, user, session } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
   const from = location.state?.from?.pathname || '/'
+
+  // Automatically redirect user if already authenticated
+  useEffect(() => {
+    if (user && session) {
+      navigate(from, { replace: true })
+    }
+  }, [user, session, navigate, from])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,16 +39,25 @@ export default function Auth() {
     try {
       if (isLogin) {
         const { error } = await signIn(email, password)
-        if (error) throw error
-        navigate(from, { replace: true })
+        if (error) {
+          if (error.message === 'Invalid login credentials') {
+            throw new Error('E-mail ou senha incorretos.')
+          }
+          throw error
+        }
+        // Success redirect is handled by useEffect above tracking the session
       } else {
         const { error } = await signUp(email, password)
-        if (error) throw error
+        if (error) {
+          if (error.message.includes('already registered')) {
+            throw new Error('Este e-mail já está em uso.')
+          }
+          throw error
+        }
         toast({
           title: 'Conta criada!',
-          description: 'Sua conta foi criada com sucesso. Bem-vindo!',
+          description: 'Sua conta foi criada com sucesso. Bem-vindo ao painel!',
         })
-        navigate(from, { replace: true })
       }
     } catch (error: any) {
       toast({
