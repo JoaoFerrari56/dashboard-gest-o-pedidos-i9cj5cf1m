@@ -75,7 +75,6 @@ export function OrderCard({
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('orderId', order.id)
-    // Small timeout ensures the dragged visual clone is created before applying opacity
     setTimeout(() => setIsDragging(true), 0)
   }
 
@@ -93,9 +92,23 @@ export function OrderCard({
           'cursor-grab active:cursor-grabbing hover:shadow-md transition-all border-slate-200 bg-white relative group',
           isDragging && 'opacity-50 scale-95',
         )}
-        onClick={() => setDetailsOpen(true)}
       >
-        <CardContent className="p-4">
+        {/* Overlay interativo: Permite clicar no card sem violar a regra de elementos aninhados (button dentro de button) */}
+        <div
+          className="absolute inset-0 z-0 cursor-pointer"
+          onClick={() => setDetailsOpen(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setDetailsOpen(true)
+            }
+          }}
+          aria-label={`Ver detalhes do pedido de ${order.customer_name}`}
+        />
+
+        <CardContent className="p-4 relative z-10 flex flex-col h-full pointer-events-none">
           <div className="flex justify-between items-start mb-3">
             <div>
               <span className="text-xs font-semibold text-slate-400 block mb-0.5">
@@ -105,11 +118,11 @@ export function OrderCard({
                 {order.customer_name}
               </h4>
             </div>
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end gap-1 pointer-events-auto">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-slate-300 hover:text-brand-red hover:bg-red-50 -mr-2 -mt-2 transition-colors"
+                className="h-7 w-7 text-slate-300 hover:text-brand-red hover:bg-red-50 -mr-2 -mt-2 transition-colors relative z-20"
                 onClick={handleDeleteClick}
               >
                 <Trash2 className="h-4 w-4" />
@@ -136,17 +149,17 @@ export function OrderCard({
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between mt-auto pt-3 border-t border-slate-100 pointer-events-auto">
             <Badge
               variant="outline"
-              className="text-slate-500 text-[10px] font-medium uppercase tracking-wider"
+              className="text-slate-500 text-[10px] font-medium uppercase tracking-wider relative z-20"
             >
               {order.payment_method}
             </Badge>
             {nextStatus && (
               <Button
                 size="sm"
-                className="h-7 px-2 text-xs bg-brand-red hover:bg-red-700 text-white transition-transform hover:scale-105 active:scale-95"
+                className="h-7 px-2 text-xs bg-brand-red hover:bg-red-700 text-white transition-transform hover:scale-105 active:scale-95 relative z-20"
                 onClick={handleNextStatus}
               >
                 {STATUS_LABELS[nextStatus]}
